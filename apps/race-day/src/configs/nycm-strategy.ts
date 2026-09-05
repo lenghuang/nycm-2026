@@ -1,0 +1,20 @@
+import type { RacePlanPreset } from '../types';
+
+const minutes = (value: number): number => value * 60_000;
+
+export const nycmStrategy: RacePlanPreset = {
+  id: 'nycm-strategy', label: 'NYCM Strategy', description: 'Your landmark-by-landmark NYC Marathon plan.', isTest: false,
+  phases: [
+    { name: '🐢 Verrazano Bridge', miles: 'Miles 1–2', note: 'Walk the bridge uphill. Jog the downhill.', runDurationMs: minutes(1), walkDurationMs: minutes(10), gelIntervalMs: minutes(35), plannedCycles: 1, startsWith: 'WALK', effort: 'RECOVERY', music: 'NONE' },
+    { name: '🙇 4th Ave Brooklyn', miles: 'Miles 3–7', note: 'Strict 4:1 run/walk. Watch your heart rate; stay low Zone 2.', runDurationMs: minutes(4), walkDurationMs: minutes(1), gelIntervalMs: minutes(35), plannedCycles: 12, startsWith: 'RUN', effort: 'CONTROLLED', music: 'NONE' },
+    { name: '😈 Bedford', miles: 'Miles 8–12', note: 'The crowd is hype—indulge and run. Walk every hydration station (about each mile).', runDurationMs: minutes(60), walkDurationMs: minutes(1), gelIntervalMs: minutes(35), plannedCycles: 1, startsWith: 'RUN', effort: 'SURGE', music: 'NONE' },
+    { name: '🐢 Pulaski Bridge', miles: 'Mile 13', note: 'Walk. No crowd, halfway point. You earned it.', runDurationMs: minutes(1), walkDurationMs: minutes(15), gelIntervalMs: minutes(35), plannedCycles: 1, startsWith: 'WALK', effort: 'RECOVERY', music: 'NONE' },
+    { name: '🙇 LIC', miles: 'Mile 14', note: 'Strict 4:1 run/walk cadence. Thinner crowds.', runDurationMs: minutes(4), walkDurationMs: minutes(1), gelIntervalMs: minutes(35), plannedCycles: 2, startsWith: 'RUN', effort: 'CONTROLLED', music: 'NONE' },
+    { name: '🐢 Queensboro Bridge', miles: 'Miles 15–16', note: 'Walk the uphill, jog the decline. Quiet stretch—start your music here.', runDurationMs: minutes(1), walkDurationMs: minutes(10), gelIntervalMs: minutes(35), plannedCycles: 1, startsWith: 'WALK', effort: 'RECOVERY', music: 'START' },
+    { name: '🙇 1st Ave Manhattan', miles: 'Miles 16–19', note: 'Hype up, baby. Ride the crowd for a little bit—but this is uphill, so stay on a 4:1 run/walk.', runDurationMs: minutes(4), walkDurationMs: minutes(1), gelIntervalMs: minutes(35), plannedCycles: 7, startsWith: 'RUN', effort: 'SURGE', music: 'NONE' },
+    { name: '🐢 Bronx Bridges', miles: 'Miles 20–21', note: 'Walk the bridges—you are probably tired from the 1st Ave climb. Jog any flat portion between.', runDurationMs: minutes(1), walkDurationMs: minutes(10), gelIntervalMs: minutes(35), plannedCycles: 1, startsWith: 'WALK', effort: 'RECOVERY', music: 'NONE' },
+    { name: '🙇 Harlem', miles: 'Miles 22–23', note: 'Steady 4:1 run/walk ratio.', runDurationMs: minutes(4), walkDurationMs: minutes(1), gelIntervalMs: minutes(35), plannedCycles: 3, startsWith: 'RUN', effort: 'CONTROLLED', music: 'NONE' },
+    { name: '🐢 5th Ave Manhattan', miles: 'Miles 24–25', note: 'Surprisingly uphill. Power walk or use a gentle run/walk.', runDurationMs: minutes(3), walkDurationMs: minutes(2), gelIntervalMs: minutes(35), plannedCycles: 3, startsWith: 'WALK', effort: 'RECOVERY', music: 'NONE' },
+    { name: '😈 Central Park', miles: 'Miles 25–26.2', note: 'Bring it home, baby. Power walk or run/walk—hills inbound.', runDurationMs: minutes(3), walkDurationMs: minutes(2), gelIntervalMs: minutes(35), plannedCycles: 2, startsWith: 'RUN', effort: 'FINISH', music: 'NONE' },
+  ],
+};

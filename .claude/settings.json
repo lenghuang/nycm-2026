@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c ' *)",
+      "Bash(pip3 install *)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:www.google.com)",
+      "WebFetch(domain:dlthub.com)",
+      "WebFetch(domain:tonnystark.com)",
+      "Bash(mkdir -p /Users/lenhuang/src/misc/nycm-2026/.vscode)",
+      "Bash(uv run *)",
+      "Bash(uv pip *)",
+      "Bash(uv sync *)"
+    ],
+    "additionalDirectories": [
+      "/Users/lenhuang/src/misc/nycm-2026"
+    ]
+  }
+}

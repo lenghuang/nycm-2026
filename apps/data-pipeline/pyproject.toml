@@ -1,0 +1,21 @@
+[project]
+name = "nycm-data-pipeline"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "dlt[duckdb]>=1.4.0",
+    "garminconnect>=0.2.19",
+    "openpyxl>=3.1.0",
+    "playwright>=1.40.0",
+    "pydantic-settings>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "sqlmesh[duckdb]>=0.140.0",
+]
+
+[dependency-groups]
+dev = [
+    "ipython>=8.0.0",
+]
+
+[tool.ty]
+environment.python = ".venv/bin/python"

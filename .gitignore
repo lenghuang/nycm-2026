@@ -1,0 +1,32 @@
+node_modules/
+apps/race-day/dist/
+apps/race-day/ios/App/App/public/
+apps/race-day/ios/App/Pods/
+apps/race-day/ios/App/build/
+apps/race-day/ios/App/App.xcworkspace/xcuserdata/
+apps/race-day/public/race-day.mp3
+Prospa @ Coachella 2026 - Yuma Tent \[bWIth_h1s-E\].mp3
+*.tsbuildinfo
+*.env
+.env
+apps/data-pipeline/.venv/
+apps/data-pipeline/data/garmin_tokens/
+apps/data-pipeline/data/*.duckdb
+apps/data-pipeline/data/*.duckdb.wal
+
+# Python
+__pycache__/
+*.py[cod]
+
+# dlt pipeline state
+apps/data-pipeline/.dlt/pipelines/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# dlt pipeline state (regenerated on each run)
+apps/data-pipeline/.dlt/pipelines/
+
+.DS_Store

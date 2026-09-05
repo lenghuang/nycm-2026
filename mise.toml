@@ -1,0 +1,6 @@
+[tools]
+bun = "1.4.1"
+
+[tasks.ios]
+description = "Build, sync, and open the iPhone test app in Xcode"
+run = "bun install && cd apps/race-day && bun run ios:sync && bun run ios:open"

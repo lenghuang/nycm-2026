@@ -1,0 +1,15 @@
+week_num,phase_id,start_date,end_date,target_run_miles,notes
+0,0,2026-08-02,2026-08-02,0,Planning week
+1,1,2026-08-03,2026-08-09,6,Ankle recovery - test running
+2,1,2026-08-10,2026-08-16,10,Ankle recovery - build run tolerance
+3,2,2026-08-17,2026-08-23,20,Base - time on feet
+4,2,2026-08-24,2026-08-30,21,Base - repeat volume with more lifting
+5,2,2026-08-31,2026-09-06,23,Base - target long run 9mi
+6,3,2026-09-07,2026-09-13,25,Build - long run 11.5mi
+7,3,2026-09-14,2026-09-20,27,Build - long run 13.1mi
+8,3,2026-09-21,2026-09-27,29,Build - long run 14.5mi
+9,3,2026-09-28,2026-10-04,20,Build - deload valve week
+10,3,2026-10-05,2026-10-11,32,Build - long run 15.5mi
+11,3,2026-10-12,2026-10-18,33,Build - long run 16mi
+12,4,2026-10-19,2026-10-25,15,Taper - reduce volume
+13,4,2026-10-26,2026-11-01,8,Taper - race week

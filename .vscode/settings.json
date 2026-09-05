@@ -1,0 +1,3 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/apps/data-pipeline/.venv/bin/python"
+}

@@ -1,0 +1,11 @@
+[destination.duckdb]
+database = "data/fitness.duckdb"
+
+[sources.macrofactor]
+export_path = "data/raw/macrofactor/MacroFactor-20260904232342.xlsx"
+
+[sources.hevy]
+export_path = "data/raw/hevy/workout_data.csv"
+
+[sources.garmin]
+start_date = "2026-08-02"

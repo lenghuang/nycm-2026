@@ -22,30 +22,25 @@ def _date_chunks(start: str, end: str):
 def garmin_source(client: GarminClient, start_date: str):
     today = datetime.now(tz=timezone.utc).date().isoformat()
 
-    @dlt.resource(name="sleep_daily", write_disposition="merge", primary_key="calendar_date")
-    def sleep_daily(cursor=dlt.sources.incremental("calendar_date", initial_value=start_date)):  # noqa: B008
-        for chunk_start, chunk_end in _date_chunks(cursor.last_value, today):
-            yield from client.get_sleep_daily(chunk_start, chunk_end)
+    @dlt.resource(name="sleep_daily", write_disposition="merge", primary_key="calendarDate")
+    def sleep_daily(cursor=dlt.sources.incremental("calendarDate", initial_value=start_date)):  # noqa: B008
+        yield from client.get_sleep_daily(cursor.last_value, today)
 
-    @dlt.resource(name="steps_daily", write_disposition="merge", primary_key="calendar_date")
-    def steps_daily(cursor=dlt.sources.incremental("calendar_date", initial_value=start_date)):  # noqa: B008
-        for chunk_start, chunk_end in _date_chunks(cursor.last_value, today):
-            yield from client.get_daily_steps(chunk_start, chunk_end)
+    @dlt.resource(name="steps_daily", write_disposition="merge", primary_key="calendarDate")
+    def steps_daily(cursor=dlt.sources.incremental("calendarDate", initial_value=start_date)):  # noqa: B008
+        yield from client.get_daily_steps(cursor.last_value, today)
 
-    @dlt.resource(name="rhr_daily", write_disposition="merge", primary_key="calendar_date")
-    def rhr_daily(cursor=dlt.sources.incremental("calendar_date", initial_value=start_date)):  # noqa: B008
-        for chunk_start, chunk_end in _date_chunks(cursor.last_value, today):
-            yield from client.get_rhr_daily(chunk_start, chunk_end)
+    @dlt.resource(name="rhr_daily", write_disposition="merge", primary_key="calendarDate")
+    def rhr_daily(cursor=dlt.sources.incremental("calendarDate", initial_value=start_date)):  # noqa: B008
+        yield from client.get_rhr_daily(cursor.last_value, today)
 
-    @dlt.resource(name="body_battery", write_disposition="merge", primary_key="calendar_date")
-    def body_battery(cursor=dlt.sources.incremental("calendar_date", initial_value=start_date)):  # noqa: B008
-        for chunk_start, chunk_end in _date_chunks(cursor.last_value, today):
-            yield from client.get_body_battery(chunk_start, chunk_end)
+    @dlt.resource(name="body_battery", write_disposition="merge", primary_key="calendarDate")
+    def body_battery(cursor=dlt.sources.incremental("calendarDate", initial_value=start_date)):  # noqa: B008
+        yield from client.get_body_battery(cursor.last_value, today)
 
-    @dlt.resource(name="hrv_daily", write_disposition="merge", primary_key="calendar_date")
-    def hrv_daily(cursor=dlt.sources.incremental("calendar_date", initial_value=start_date)):  # noqa: B008
-        for chunk_start, chunk_end in _date_chunks(cursor.last_value, today):
-            yield from client.get_hrv_data_range(chunk_start, chunk_end)
+    @dlt.resource(name="hrv_daily", write_disposition="merge", primary_key="calendarDate")
+    def hrv_daily(cursor=dlt.sources.incremental("calendarDate", initial_value=start_date)):  # noqa: B008
+        yield from client.get_hrv_data_range(cursor.last_value, today)
 
     @dlt.resource(name="activities", write_disposition="merge", primary_key="activity_id")
     def activities(cursor=dlt.sources.incremental("start_time_local", initial_value=start_date)):  # noqa: B008

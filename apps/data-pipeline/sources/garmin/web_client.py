@@ -1,141 +1,115 @@
-import json
-import time
 from pathlib import Path
 
-from curl_cffi import requests as curl_requests
 from playwright.sync_api import sync_playwright
 
 CONNECT_URL = "https://connect.garmin.com"
-API_BASE = "https://connect.garmin.com/gc-api"
-COOKIE_FILE = Path("data/garmin_tokens/session_cookies.json")
 BROWSER_PROFILE_DIR = str(Path("data/garmin_tokens/browser_profile"))
 
-LOGIN_URL = "https://sso.garmin.com/portal/api/login"
-LOGGED_IN_INDICATOR = "/modern"
 
+def _open_context(email: str | None, password: str | None):
+    p = sync_playwright().start()
+    context = p.chromium.launch_persistent_context(
+        user_data_dir=BROWSER_PROFILE_DIR,
+        headless=False,
+        args=["--disable-blink-features=AutomationControlled"],
+        ignore_default_args=["--enable-automation"],
+    )
+    page = context.new_page()
+    page.goto(f"{CONNECT_URL}/modern", wait_until="networkidle")
 
-def _cookies_expired(cookies: list[dict]) -> bool:
-    jwt = next((c for c in cookies if c["name"] == "JWT_WEB"), None)
-    if not jwt:
-        return True
-    expires = jwt.get("expires", 0)
-    return bool(expires and expires < time.time())
+    if "sso.garmin.com" in page.url and email and password:
+        try:
+            page.fill('input[type="email"], input[name="email"]', email)
+            page.fill('input[type="password"], input[name="password"]', password)
+            page.click('button[type="submit"]')
+        except Exception:  # noqa: BLE001
+            pass
 
+    if "sso.garmin.com" in page.url:
+        print("Complete login in the browser window...")
+        page.wait_for_url(f"{CONNECT_URL}/**", timeout=120000)
 
-def _load_cookies() -> list[dict] | None:
-    if not COOKIE_FILE.exists():
-        return None
-    cookies = json.loads(COOKIE_FILE.read_text())
-    if _cookies_expired(cookies):
-        return None
-    return cookies
-
-
-def _save_cookies(cookies: list[dict]) -> None:
-    COOKIE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    COOKIE_FILE.write_text(json.dumps(cookies))
-
-
-def _acquire_cookies(email: str | None = None, password: str | None = None) -> list[dict]:
-    """Open persistent browser, auto-fill credentials if provided, extract all cookies."""
-    with sync_playwright() as p:
-        context = p.chromium.launch_persistent_context(
-            user_data_dir=BROWSER_PROFILE_DIR,
-            headless=False,
-            args=["--disable-blink-features=AutomationControlled"],
-            ignore_default_args=["--enable-automation"],
-        )
-        page = context.new_page()
-        page.goto(f"{CONNECT_URL}/modern", wait_until="networkidle")
-
-        # Auto-fill credentials if we land on the SSO login page
-        if "sso.garmin.com" in page.url and email and password:
-            try:
-                page.fill('input[type="email"], input[name="email"]', email)
-                page.fill('input[type="password"], input[name="password"]', password)
-                page.click('button[type="submit"]')
-            except Exception:
-                pass
-
-        # Wait until we're on the Garmin Connect dashboard (not SSO)
-        if "sso.garmin.com" in page.url:
-            print("Waiting for Garmin login to complete in the browser window...")
-            page.wait_for_url(f"{CONNECT_URL}/**", timeout=120000)
-
-        cookies = context.cookies()
-        context.close()
-
-    jwt = next((c for c in cookies if c["name"] == "JWT_WEB"), None)
-    if not jwt:
-        raise RuntimeError("JWT_WEB not found. Make sure you are logged in.")
-
-    _save_cookies(cookies)
-    return cookies
-
-
-def _cookie_header(cookies: list[dict]) -> str:
-    # Only send cookies scoped to connect.garmin.com — avoid SSO/other domain conflicts
-    relevant = [
-        c for c in cookies
-        if "connect.garmin.com" in c.get("domain", "")
-        or c.get("domain", "") in (".garmin.com", "garmin.com")
-    ]
-    print(f"[debug] sending cookies: {[c['name'] for c in relevant]}")
-    return "; ".join(f"{c['name']}={c['value']}" for c in relevant)
+    page.close()
+    return context, p
 
 
 class WebCookieGarminClient:
-    """Garmin client using browser session cookies. No mobile OAuth required."""
+    """Navigates Garmin Connect pages and intercepts XHR responses.
+    Uses the SPA's own auth — no direct API calls, no Cloudflare battles."""
 
     def __init__(self, email: str | None = None, password: str | None = None) -> None:
-        self._email = email
-        self._password = password
-        cookies = _load_cookies() or _acquire_cookies(email, password)
-        self._session = self._make_session(cookies)
+        self._context, self._playwright = _open_context(email, password)
 
-    def _make_session(self, cookies: list[dict]) -> curl_requests.Session:
-        sess = curl_requests.Session(impersonate="chrome")
-        sess.headers.update({
-            "Cookie": _cookie_header(cookies),
-            "NK": "NT",
-            "X-app-ver": "4.89.0.0",
-            "Accept": "application/json",
-        })
-        return sess
+    def close(self) -> None:
+        self._context.close()
+        self._playwright.stop()
 
-    def _get(self, path: str, **params) -> list | dict:
-        resp = self._session.get(f"{API_BASE}{path}", params=params)
-        if resp.status_code in (401, 403):
-            COOKIE_FILE.unlink(missing_ok=True)
-            raise RuntimeError(
-                f"{resp.status_code} on {path}\nResponse: {resp.text[:500]}"
-            )
-        resp.raise_for_status()
-        return resp.json()
+    def _intercept(self, page_url: str, patterns: list[str]) -> dict[str, object]:
+        """Navigate to page_url and return first matching response per pattern."""
+        captured: dict[str, object] = {}
+
+        def on_response(response):
+            for pat in patterns:
+                if pat not in captured and pat in response.url and response.status == 200:
+                    try:
+                        captured[pat] = response.json()
+                    except Exception:  # noqa: BLE001
+                        pass
+
+        page = self._context.new_page()
+        page.on("response", on_response)
+        page.goto(page_url, wait_until="networkidle")
+        page.close()
+        return captured
 
     def get_sleep_daily(self, start: str, end: str) -> list[dict]:
-        return self._get(f"/sleep-service/stats/sleep/daily/{start}/{end}")
-
-    def get_daily_steps(self, start: str, end: str) -> list[dict]:
-        return self._get(f"/usersummary-service/stats/steps/daily/{start}/{end}")
-
-    def get_rhr_daily(self, start: str, end: str) -> list[dict]:
-        return self._get(f"/usersummary-service/stats/heartRate/daily/{start}/{end}")
-
-    def get_body_battery(self, start: str, end: str) -> list[dict]:
-        return self._get(
-            "/wellness-service/wellness/bodyBattery/reports/daily",
-            startDate=start,
-            endDate=end,
+        data = self._intercept(
+            f"{CONNECT_URL}/modern/sleep",
+            ["sleep-service/stats/sleep/daily"],
         )
+        result = data.get("sleep-service/stats/sleep/daily", {})
+        return [
+            {"calendarDate": item["calendarDate"], **item.get("values", {})}
+            for item in result.get("individualStats", [])
+        ]
 
     def get_hrv_data_range(self, start: str, end: str) -> list[dict]:
-        return self._get(f"/hrv-service/hrv/daily/{start}/{end}")
+        data = self._intercept(
+            f"{CONNECT_URL}/modern/sleep",
+            ["hrv-service/hrv/daily"],
+        )
+        result = data.get("hrv-service/hrv/daily", {})
+        # Response shape TBD — return raw for now
+        return result if isinstance(result, list) else result.get("hrv", [])
+
+    def get_rhr_daily(self, start: str, end: str) -> list[dict]:
+        data = self._intercept(
+            f"{CONNECT_URL}/modern/sleep",
+            ["usersummary-service/stats/heartRate"],
+        )
+        result = data.get("usersummary-service/stats/heartRate", {})
+        return result if isinstance(result, list) else []
+
+    def get_daily_steps(self, start: str, end: str) -> list[dict]:
+        data = self._intercept(
+            f"{CONNECT_URL}/modern/wellness",
+            ["usersummary-service/stats/steps"],
+        )
+        result = data.get("usersummary-service/stats/steps", {})
+        return result if isinstance(result, list) else []
+
+    def get_body_battery(self, start: str, end: str) -> list[dict]:
+        data = self._intercept(
+            f"{CONNECT_URL}/app/body-battery",
+            ["wellness-service/wellness/bodyBattery"],
+        )
+        result = data.get("wellness-service/wellness/bodyBattery", {})
+        return result if isinstance(result, list) else []
 
     def get_activities_by_date(self, start: str, end: str) -> list[dict]:
-        return self._get(
-            "/activitylist-service/activities/search/activities",
-            startDate=start,
-            endDate=end,
-            limit=100,
+        data = self._intercept(
+            f"{CONNECT_URL}/modern/activities",
+            ["activitylist-service/activities/search"],
         )
+        result = data.get("activitylist-service/activities/search", [])
+        return result if isinstance(result, list) else []

@@ -18,6 +18,8 @@ if __name__ == "__main__":
 
     # Switch to LibraryGarminClient() if garminconnect auth recovers
     client = WebCookieGarminClient(email=settings.email, password=settings.password)
-
-    info = pipeline.run(garmin_source(client=client, start_date=settings.start_date.isoformat()))
-    print(info)
+    try:
+        info = pipeline.run(garmin_source(client=client, start_date=settings.start_date.isoformat()))
+        print(info)
+    finally:
+        client.close()

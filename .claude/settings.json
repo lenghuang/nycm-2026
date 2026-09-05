@@ -19,7 +19,9 @@
       "Read(//Users/lenhuang/**)",
       "Read(//Users/lenhuang/.duckdb/**)",
       "Read(//Users/lenhuang/.local/share/**)",
-      "mcp__playwright__*"
+      "mcp__playwright__*",
+      "Bash(mkdir -p /Users/lenhuang/src/misc/nycm-2026/apps/data-pipeline/notebooks)",
+      "Bash(uv add *)"
     ],
     "additionalDirectories": [
       "/Users/lenhuang/src/misc/nycm-2026"

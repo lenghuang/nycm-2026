@@ -5,6 +5,31 @@ bun = "1.4.1"
 description = "Build, sync, and open the iPhone test app in Xcode"
 run = "bun install && cd apps/race-day && bun run ios:sync && bun run ios:open"
 
+[tasks.pipeline]
+description = "Run all data pipelines, rebuild SQLMesh models, open DuckDB UI to verify"
+run = """
+cd apps/data-pipeline
+echo "=== Running pipelines ==="
+uv run python pipelines/run_macrofactor.py
+uv run python pipelines/run_hevy.py
+uv run python pipelines/run_garmin.py
+echo "=== Rebuilding SQLMesh models ==="
+cd transform && uv run sqlmesh plan --auto-apply
+cd ..
+echo "=== Opening DuckDB UI at http://localhost:4213 ==="
+uv run python -c "
+import duckdb, time
+conn = duckdb.connect('data/fitness.duckdb', read_only=True)
+conn.execute('INSTALL ui; LOAD ui; CALL start_ui();')
+print('DuckDB UI running at http://localhost:4213 — Ctrl+C to stop')
+while True: time.sleep(60)
+"
+"""
+
+[tasks.notebook]
+description = "Open Marimo notebooks for training analysis"
+run = "cd apps/data-pipeline && uv run marimo edit notebooks/"
+
 [tasks.db]
 description = "Open DuckDB UI notebook at localhost:4213"
 run = """

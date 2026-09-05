@@ -37,3 +37,4 @@ apps/data-pipeline/.dlt/pipelines/
 
 .DS_Store
 .playwright-mcp
+__marimo__

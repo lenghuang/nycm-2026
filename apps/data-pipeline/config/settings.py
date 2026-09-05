@@ -1,6 +1,6 @@
 from datetime import date
 from pathlib import Path
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _ROOT = Path(__file__).parent.parent
@@ -28,9 +28,20 @@ class MacroFactorSettings(BaseSettings):
         extra="ignore",
     )
 
-    export_path: Path = Field(
-        default=_ROOT / "data" / "raw" / "macrofactor" / "MacroFactor-20260904232342.xlsx"
-    )
+    export_path: Path = Field(default=Path("."))
+
+    @model_validator(mode="after")
+    def resolve_latest_export(self) -> "MacroFactorSettings":
+        if self.export_path == Path("."):
+            candidates = sorted(
+                (_ROOT / "data" / "raw" / "macrofactor").glob("MacroFactor-*.xlsx")
+            )
+            if not candidates:
+                raise FileNotFoundError(
+                    "No MacroFactor-*.xlsx found in data/raw/macrofactor/"
+                )
+            self.export_path = candidates[-1]
+        return self
 
 
 class HevySettings(BaseSettings):

@@ -1,6 +1,7 @@
 MODEL (
   name fitness.fact_daily,
   kind FULL,
+  cron '@daily',
   description 'One row per day. Primary LLM context table. Joins all confirmed sources on date.'
 );
 

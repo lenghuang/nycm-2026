@@ -1,5 +1,7 @@
 # Data Pipeline Session Update — 2026-09-05 (continued)
 
+> **Updated at end of session** with refactors, sleep backfill, Playwright MCP findings, and daily log query. Sections marked `[UPDATED]` were changed after initial write.
+
 ## What changed since the first handoff
 
 This document covers the second half of the 2026-09-05 session. Read `2026-09-05-data-pipeline.md` first for full project context.
@@ -161,3 +163,49 @@ fitness.fitness.fact_daily  35 rows with all metrics joined
 | `usersummary/daily` as the wellness source | Single endpoint with all daily health metrics; verified against Notion ground truth |
 | Marimo over Jupyter | Clean `.py` diffs, version controllable without `nbstripout`, same Python ecosystem |
 | `WebCookieGarminClient` as default | Rate limit on garminconnect is temporary; browser approach is the reliable fallback until OAuth recovers |
+
+---
+
+## [UPDATED] Sleep URL pattern discovered via Playwright MCP
+
+The sleep page accepts a date-in-path URL: `/app/sleep/{end_date}/1` where `1` = 7-day view.
+
+- `/app/sleep/2026-08-09/1` → loads `sleep-service/stats/sleep/daily/2026-08-03/2026-08-09`
+- `get_sleep_daily` now navigates week-by-week using this pattern to backfill full history
+- Backfill script: `uv run python pipelines/backfill_garmin_sleep.py` (bypasses dlt incremental state, safe to re-run)
+
+## [UPDATED] Daily DuckDB state after full session
+
+```
+raw_garmin.sleep_daily      34 rows  (Aug 2 – Sep 4 — full training history)
+raw_garmin.wellness_daily   35 rows  (Aug 2 – Sep 5)
+raw_garmin.activities       20 rows
+raw_hevy.workout_sets       5170 rows
+raw_macrofactor.daily_summary  30 rows
+raw_macrofactor.food_log    220 rows
+fitness.fitness.fact_daily  35 rows — all metrics verified against Notion ✓
+```
+
+## [UPDATED] Refactors applied end of session
+
+1. **MacroFactor settings** — `settings.py` globs `MacroFactor-*.xlsx` for the latest export. No longer hardcodes filename.
+2. **Dead wrapper methods removed** — `get_daily_steps`, `get_rhr_daily`, `get_body_battery` removed from `web_client.py` (Protocol only has 4 methods).
+3. **`_navigate_and_capture` helper** — replaces repeated page-open pattern across `get_sleep_daily`, `get_wellness_daily`.
+4. **Error logging** — `logging.warning` when a page navigation returns no data.
+5. **SQLMesh cron** — `cron '@daily'` added to `fact_daily` and `fact_workout_set`. `sqlmesh run` now respects daily intervals.
+6. **`mise run pipeline`** — now includes `sqlmesh run` after `sqlmesh plan --auto-apply`.
+
+## [UPDATED] Marimo notebook — daily training log cell added
+
+[notebooks/training_analysis.py](apps/data-pipeline/notebooks/training_analysis.py) now has a **Daily Training Log** cell that mirrors the Notion manual log. Also in [notebooks/queries/daily_log.sql](apps/data-pipeline/notebooks/queries/daily_log.sql).
+
+Key fix: `STRING_AGG(DISTINCT ...)` doesn't work in DuckDB 1.5.5 — use a subquery with `SELECT DISTINCT` then aggregate.
+
+## [UPDATED] Automated daily pipeline
+
+Not yet set up. When ready:
+```bash
+# macOS launchd at 8am daily
+launchctl load ~/Library/LaunchAgents/com.nycm.pipeline.plist
+```
+Blocked by: Garmin browser client opens a window, needs `LibraryGarminClient` for headless operation. Switch once garminconnect rate limit clears.

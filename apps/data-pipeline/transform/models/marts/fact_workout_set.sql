@@ -1,6 +1,7 @@
 MODEL (
   name fitness.fact_workout_set,
   kind FULL,
+  cron '@daily',
   description 'One row per strength set. Grain: session + exercise + set_index.'
 );
 

@@ -1,18 +1,18 @@
+import logging
+from datetime import date, timedelta
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
+log = logging.getLogger(__name__)
+
 CONNECT_URL = "https://connect.garmin.com"
 BROWSER_PROFILE_DIR = str(Path("data/garmin_tokens/browser_profile"))
 
-# API patterns and which page + interaction loads them
 _HARVEST_PAGES = [
     {
         "url": f"{CONNECT_URL}/modern/sleep",
-        "patterns": [
-            "sleep-service/stats/sleep/daily",
-            "hrv-service/hrv/daily",
-        ],
+        "patterns": ["sleep-service/stats/sleep/daily", "hrv-service/hrv/daily"],
     },
     {
         "url": f"{CONNECT_URL}/modern/activities",
@@ -22,12 +22,13 @@ _HARVEST_PAGES = [
 
 
 class WebCookieGarminClient:
-    """Navigates Garmin Connect pages, clicks widgets, intercepts XHR responses."""
+    """Navigates Garmin Connect pages and intercepts XHR responses.
+    Browser opens on construction; call close() when done."""
 
     def __init__(self, email: str | None = None, password: str | None = None) -> None:
         self._email = email
         self._password = password
-        self._data: dict[str, object] = {}
+        self._harvested: dict[str, object] = {}
         self._playwright = sync_playwright().start()
         self._context = self._playwright.chromium.launch_persistent_context(
             user_data_dir=BROWSER_PROFILE_DIR,
@@ -57,7 +58,7 @@ class WebCookieGarminClient:
         page.close()
 
     def _harvest(self) -> None:
-        """Navigate all target pages, click widgets, capture API responses."""
+        """Navigate harvest pages and capture XHR responses the SPA naturally makes."""
         print("Harvesting Garmin data...")
         for spec in _HARVEST_PAGES:
             captured: dict[str, object] = {}
@@ -73,84 +74,22 @@ class WebCookieGarminClient:
             page = self._context.new_page()
             page.on("response", on_response)
             page.goto(spec["url"], wait_until="networkidle")
-
-            # Scroll to trigger lazy-loaded widgets
             page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
             page.wait_for_timeout(2000)
-
-            # Try clicking known widget selectors
-            for selector in spec.get("clicks", []):
-                for sel in selector.split(", "):
-                    try:
-                        el = page.query_selector(sel.strip())
-                        if el:
-                            el.click()
-                            page.wait_for_timeout(1500)
-                            break
-                    except Exception:  # noqa: BLE001
-                        pass
-
-            page.wait_for_timeout(2000)
             page.close()
-            self._data.update(captured)
+            self._harvested.update(captured)
             print(f"  {spec['url'].split('/')[-1]}: captured {list(captured.keys())}")
 
     def close(self) -> None:
         self._context.close()
         self._playwright.stop()
 
-    def _get(self, pattern: str) -> object:
-        return self._data.get(pattern, {})
-
-    def get_sleep_daily(self, start: str, end: str) -> list[dict]:
-        """Navigate week-by-week to capture full sleep history."""
-        from datetime import date, timedelta
-        s = date.fromisoformat(start)
-        e = date.fromisoformat(end)
-        seen: set[str] = set()
-        results = []
-
-        # Step through 7-day windows: /app/sleep/{week_end}/1
-        week_end = s + timedelta(days=6)
-        while week_end <= e + timedelta(days=6):
-            captured: dict = {}
-
-            def on_response(response, cap=captured):
-                if "sleep-service/stats/sleep/daily" in response.url and response.status == 200:
-                    try:
-                        cap["data"] = response.json()
-                    except Exception:  # noqa: BLE001
-                        pass
-
-            page = self._context.new_page()
-            page.on("response", on_response)
-            page.goto(
-                f"{CONNECT_URL}/app/sleep/{min(week_end, e).isoformat()}/1",
-                wait_until="networkidle",
-            )
-            page.close()
-
-            data = captured.get("data", {})
-            for item in data.get("individualStats", []):
-                d = item["calendarDate"]
-                if d not in seen and d >= start:
-                    seen.add(d)
-                    results.append({"calendarDate": d, **item.get("values", {})})
-
-            week_end += timedelta(days=7)
-
-        return results
-
-    def get_hrv_data_range(self, start: str, end: str) -> list[dict]:
-        result = self._get("hrv-service/hrv/daily")
-        return result if isinstance(result, list) else result.get("hrv", [])
-
-    def _get_usersummary_for_date(self, date: str) -> dict:
-        """Navigate to a specific day's summary and capture usersummary/daily."""
+    def _navigate_and_capture(self, url: str, pattern: str) -> dict:
+        """Navigate to url and return first JSON response matching pattern."""
         captured: dict = {}
 
         def on_response(response, cap=captured):
-            if "usersummary-service/usersummary/daily" in response.url and "dailySummariesCount" not in response.url and response.status == 200:
+            if pattern in response.url and response.status == 200:
                 try:
                     cap["data"] = response.json()
                 except Exception:  # noqa: BLE001
@@ -158,20 +97,55 @@ class WebCookieGarminClient:
 
         page = self._context.new_page()
         page.on("response", on_response)
-        page.goto(f"{CONNECT_URL}/app/daily-summary/{date}", wait_until="networkidle")
+        page.goto(url, wait_until="networkidle")
         page.close()
+
+        if not captured:
+            log.warning("No response captured for pattern %r at %s", pattern, url)
+
         return captured.get("data", {})
 
+    # ── Protocol implementation ─────────────────────────────────────────────
+
+    def get_sleep_daily(self, start: str, end: str) -> list[dict]:
+        """Navigate /app/sleep/{week_end}/1 week-by-week to capture full sleep history."""
+        s = date.fromisoformat(start)
+        e = date.fromisoformat(end)
+        seen: set[str] = set()
+        results = []
+
+        week_end = s + timedelta(days=6)
+        while week_end <= e + timedelta(days=6):
+            target = min(week_end, e).isoformat()
+            data = self._navigate_and_capture(
+                f"{CONNECT_URL}/app/sleep/{target}/1",
+                "sleep-service/stats/sleep/daily",
+            )
+            for item in data.get("individualStats", []):
+                d = item["calendarDate"]
+                if d not in seen and d >= start:
+                    seen.add(d)
+                    results.append({"calendarDate": d, **item.get("values", {})})
+            week_end += timedelta(days=7)
+
+        return results
+
+    def get_hrv_data_range(self, start: str, end: str) -> list[dict]:
+        result = self._harvested.get("hrv-service/hrv/daily", {})
+        return result if isinstance(result, list) else result.get("hrv", [])  # type: ignore[union-attr]
+
     def get_wellness_daily(self, start: str, end: str) -> list[dict]:
-        """Per-day wellness: steps, active calories, distance, RHR, body battery, stress."""
-        from datetime import date, timedelta
+        """Navigate /app/daily-summary/{date} per day to capture usersummary/daily."""
         s = date.fromisoformat(start)
         e = date.fromisoformat(end)
         results = []
         d = s
         while d <= e:
-            summary = self._get_usersummary_for_date(d.isoformat())
-            if summary:
+            summary = self._navigate_and_capture(
+                f"{CONNECT_URL}/app/daily-summary/{d.isoformat()}",
+                "usersummary-service/usersummary/daily",
+            )
+            if summary and "dailySummariesCount" not in str(summary):
                 results.append({
                     "calendarDate": summary.get("calendarDate"),
                     "total_steps": summary.get("totalSteps"),
@@ -187,18 +161,11 @@ class WebCookieGarminClient:
                     "moderate_intensity_min": summary.get("moderateIntensityMinutes"),
                     "vigorous_intensity_min": summary.get("vigorousIntensityMinutes"),
                 })
+            else:
+                log.warning("No wellness data for %s", d.isoformat())
             d += timedelta(days=1)
         return results
 
-    def get_daily_steps(self, start: str, end: str) -> list[dict]:
-        return self.get_wellness_daily(start, end)
-
-    def get_rhr_daily(self, start: str, end: str) -> list[dict]:
-        return self.get_wellness_daily(start, end)
-
-    def get_body_battery(self, start: str, end: str) -> list[dict]:
-        return self.get_wellness_daily(start, end)
-
     def get_activities_by_date(self, start: str, end: str) -> list[dict]:
-        result = self._get("activitylist-service/activities/search")
-        return result if isinstance(result, list) else []
+        result = self._harvested.get("activitylist-service/activities/search", [])
+        return result if isinstance(result, list) else []  # type: ignore[return-value]

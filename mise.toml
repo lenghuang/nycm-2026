@@ -14,7 +14,9 @@ uv run python pipelines/run_macrofactor.py
 uv run python pipelines/run_hevy.py
 uv run python pipelines/run_garmin.py
 echo "=== Rebuilding SQLMesh models ==="
-cd transform && uv run sqlmesh plan --auto-apply
+cd transform
+uv run sqlmesh plan --auto-apply
+uv run sqlmesh run
 cd ..
 echo "=== Opening DuckDB UI at http://localhost:4213 ==="
 uv run python -c "

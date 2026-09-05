@@ -18,7 +18,8 @@ def garmin_source(client: GarminClient, start_date: str):
 
     @dlt.resource(name="sleep_daily", write_disposition="merge", primary_key="calendarDate")
     def sleep_daily(cursor=dlt.sources.incremental("calendarDate", initial_value=start_date)):  # noqa: B008
-        yield from client.get_sleep_daily(_at_least_7_days(cursor.last_value), today)
+        # Week-by-week navigation — no API minimum, use full cursor from start_date
+        yield from client.get_sleep_daily(cursor.last_value, today)
 
     @dlt.resource(name="hrv_daily", write_disposition="merge", primary_key="calendarDate")
     def hrv_daily(cursor=dlt.sources.incremental("calendarDate", initial_value=start_date)):  # noqa: B008

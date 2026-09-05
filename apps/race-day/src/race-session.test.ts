@@ -23,6 +23,23 @@ const plan: RacePlan = {
 };
 
 describe('race session reducer', () => {
+  it('preserves elapsed time across pause and resume', () => {
+    const started = raceSessionReducer(initialRaceSession(0), { type: 'START', now: 0 }, plan.phases);
+    const paused = raceSessionReducer(started, { type: 'PAUSE', now: 30_000 }, plan.phases);
+    const resumed = raceSessionReducer(paused, { type: 'RESUME', now: 90_000 }, plan.phases);
+
+    expect(resumed.pausedAt).toBeNull();
+    expect(resumed.pausedTotal).toBe(60_000);
+  });
+
+  it('resets the phase clock and gel schedule when changing phase', () => {
+    const session = { ...initialRaceSession(0), begun: true, gelScheduleAnchorElapsedMs: 20_000 };
+    const planWithSecondPhase = { ...plan, phases: [...plan.phases, { ...plan.phases[0], name: 'Second phase' }] };
+    const changed = raceSessionReducer(session, { type: 'CHANGE_PHASE', phase: 1, now: 40_000 }, planWithSecondPhase.phases);
+
+    expect(changed).toMatchObject({ phase: 1, anchor: 40_000, gelScheduleAnchorElapsedMs: 0, lastDeliveredGelNumber: 0 });
+  });
+
   it('keeps an added cycle in the session without mutating the plan', () => {
     const session = raceSessionReducer(initialRaceSession(0), { type: 'ADD_CYCLE' }, plan.phases);
 

@@ -103,11 +103,43 @@ class WebCookieGarminClient:
         return self._data.get(pattern, {})
 
     def get_sleep_daily(self, start: str, end: str) -> list[dict]:
-        result = self._get("sleep-service/stats/sleep/daily")
-        return [
-            {"calendarDate": item["calendarDate"], **item.get("values", {})}
-            for item in result.get("individualStats", [])
-        ]
+        """Navigate week-by-week to capture full sleep history."""
+        from datetime import date, timedelta
+        s = date.fromisoformat(start)
+        e = date.fromisoformat(end)
+        seen: set[str] = set()
+        results = []
+
+        # Step through 7-day windows: /app/sleep/{week_end}/1
+        week_end = s + timedelta(days=6)
+        while week_end <= e + timedelta(days=6):
+            captured: dict = {}
+
+            def on_response(response, cap=captured):
+                if "sleep-service/stats/sleep/daily" in response.url and response.status == 200:
+                    try:
+                        cap["data"] = response.json()
+                    except Exception:  # noqa: BLE001
+                        pass
+
+            page = self._context.new_page()
+            page.on("response", on_response)
+            page.goto(
+                f"{CONNECT_URL}/app/sleep/{min(week_end, e).isoformat()}/1",
+                wait_until="networkidle",
+            )
+            page.close()
+
+            data = captured.get("data", {})
+            for item in data.get("individualStats", []):
+                d = item["calendarDate"]
+                if d not in seen and d >= start:
+                    seen.add(d)
+                    results.append({"calendarDate": d, **item.get("values", {})})
+
+            week_end += timedelta(days=7)
+
+        return results
 
     def get_hrv_data_range(self, start: str, end: str) -> list[dict]:
         result = self._get("hrv-service/hrv/daily")

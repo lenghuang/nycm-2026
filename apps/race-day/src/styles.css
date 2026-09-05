@@ -620,7 +620,8 @@ textarea {
   flex: 1;
   flex-direction: column;
   align-items: center;
-  padding-top: clamp(18px, 5vh, 46px);
+  justify-content: center;
+  padding: clamp(18px, 5vh, 46px) 0;
   text-align: center;
 }
 .simple-race-screen .phase-count {
@@ -634,7 +635,7 @@ textarea {
 .simple-interval {
   display: grid;
   width: 100%;
-  margin: auto 0 0;
+  margin: clamp(26px, 7vh, 68px) 0 0;
   padding: 19px 0 17px;
   border-top: 1px solid rgb(255 255 255 / 0.13);
   border-bottom: 1px solid rgb(255 255 255 / 0.13);

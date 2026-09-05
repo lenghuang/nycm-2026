@@ -84,5 +84,40 @@ def _(conn, mo):
     mo.md("## Recent Workout Sets"), mo.ui.table(sets)
 
 
+@app.cell
+def _(conn, mo):
+    daily_log = conn.execute("""
+        WITH workout_notes AS (
+          SELECT session_date, STRING_AGG(session_title, ', ' ORDER BY session_title) AS workouts
+          FROM (SELECT DISTINCT session_date, session_title FROM fitness.fitness.fact_workout_set)
+          GROUP BY 1
+        )
+        SELECT
+          d.date,
+          d.training_week                                              AS week,
+          d.phase_name                                                 AS phase,
+          d.sleep_score,
+          CONCAT(FLOOR(d.sleep_h)::INT, 'h ',
+                 ROUND((d.sleep_h % 1) * 60)::INT, 'm')               AS sleep,
+          ROUND(d.avg_overnight_hrv, 0)::INT                           AS hrv,
+          d.body_battery_charged                                       AS bb_chg,
+          d.total_steps,
+          ROUND(d.total_distance_miles, 1)                             AS total_mi,
+          d.active_calories,
+          ROUND(d.run_miles, 2)                                        AS run_mi,
+          d.run_avg_hr,
+          w.workouts,
+          ROUND(d.total_volume_lbs, 0)::INT                           AS volume_lbs,
+          d.calories_kcal                                              AS eaten_kcal,
+          d.protein_g,
+          ROUND(d.weight_lbs, 1)                                       AS weight_lbs,
+        FROM fitness.fitness.fact_daily d
+        LEFT JOIN workout_notes w ON w.session_date = d.date
+        WHERE d.date >= '2026-08-02'
+        ORDER BY d.date DESC
+    """).df()
+    mo.md("## Daily Training Log"), mo.ui.table(daily_log)
+
+
 if __name__ == "__main__":
     app.run()

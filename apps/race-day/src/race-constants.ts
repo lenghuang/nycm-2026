@@ -12,5 +12,12 @@ export const AUDIO_CUES = {
   phaseChange: { frequency: 740, duration: 0.1 },
   intervalJump: { frequency: 720, duration: 0.1 },
   intervalRewind: { frequency: 420, duration: 0.1 },
-  gel: { firstFrequency: 880, secondFrequency: 1_050, firstDuration: 0.12, secondDuration: 0.18, gapMs: 180, vibration: [120, 80, 120] },
+  gel: {
+    firstFrequency: 880,
+    secondFrequency: 1_050,
+    firstDuration: 0.12,
+    secondDuration: 0.18,
+    gapMs: 180,
+    vibration: [120, 80, 120],
+  },
 } as const;

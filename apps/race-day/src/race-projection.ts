@@ -13,7 +13,15 @@ export type RaceProjection = {
 export function projectRace(plan: RacePlan, session: RaceSession, now: number): RaceProjection {
   const phase = plan.phases[session.phase] ?? plan.phases[0];
   const effectivePlannedCycles = Math.max(1, phase.plannedCycles + (session.addedCyclesByPhase[session.phase] ?? 0));
-  const projectedPlan = phase === plan.phases[session.phase] ? { ...plan, phases: plan.phases.map((item, index) => index === session.phase ? { ...item, plannedCycles: effectivePlannedCycles } : item) } : plan;
+  const projectedPlan =
+    phase === plan.phases[session.phase]
+      ? {
+          ...plan,
+          phases: plan.phases.map((item, index) =>
+            index === session.phase ? { ...item, plannedCycles: effectivePlannedCycles } : item,
+          ),
+        }
+      : plan;
   return {
     phase,
     effectivePlannedCycles,
@@ -41,15 +49,19 @@ export function futureCueEvents(plan: RacePlan, session: RaceSession, now: numbe
   if (boundary <= phaseElapsed) boundary += cycleMs;
   while (boundary <= phaseEndsAt) {
     const inCycle = boundary % cycleMs;
-    const mode = startsWithWalk ? (inCycle >= walkMs ? 'RUN' : 'WALK') : (inCycle < runMs ? 'RUN' : 'WALK');
+    const mode = startsWithWalk ? (inCycle >= walkMs ? 'RUN' : 'WALK') : inCycle < runMs ? 'RUN' : 'WALK';
     events.push({ type: 'interval', atPhaseElapsed: boundary, mode });
     boundary += mode === 'RUN' ? runMs : walkMs;
   }
   const gelEveryMs = Math.max(1_000, phase.gelIntervalMs);
-  let gelAt = session.gelScheduleAnchorElapsedMs + (Math.floor(Math.max(0, phaseElapsed - session.gelScheduleAnchorElapsedMs) / gelEveryMs) + 1) * gelEveryMs;
+  let gelAt =
+    session.gelScheduleAnchorElapsedMs +
+    (Math.floor(Math.max(0, phaseElapsed - session.gelScheduleAnchorElapsedMs) / gelEveryMs) + 1) * gelEveryMs;
   while (gelAt <= phaseEndsAt) {
     events.push({ type: 'gel', atPhaseElapsed: gelAt });
     gelAt += gelEveryMs;
   }
-  return events.filter(event => event.atPhaseElapsed > phaseElapsed).sort((left, right) => left.atPhaseElapsed - right.atPhaseElapsed);
+  return events
+    .filter((event) => event.atPhaseElapsed > phaseElapsed)
+    .sort((left, right) => left.atPhaseElapsed - right.atPhaseElapsed);
 }

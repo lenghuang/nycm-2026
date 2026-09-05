@@ -18,18 +18,21 @@ export const notificationSoundVolumes: { id: NotificationSoundVolume; label: str
   { id: 'loud', label: 'Loud' },
 ];
 
-export const defaultNotificationSoundVolumes: NotificationSoundVolumes = { run: 'normal', walk: 'normal', gel: 'normal' };
+export const defaultNotificationSoundVolumes: NotificationSoundVolumes = {
+  run: 'normal',
+  walk: 'normal',
+  gel: 'normal',
+};
 
 export const notificationSoundSource = (id: string, volume: NotificationSoundVolume = 'normal'): string => {
-  const source = notificationSounds.find(sound => sound.id === id)?.source ?? notificationSounds[0].source;
+  const source = notificationSounds.find((sound) => sound.id === id)?.source ?? notificationSounds[0].source;
   return volume === 'normal' ? source : source.replace('.wav', `-${volume}.wav`);
 };
 
 export type MusicTrack = { id: string; label: string; source: string };
 
-export const musicTracks: MusicTrack[] = [
-  { id: 'race-day', label: 'Race Day', source: 'race-day.mp3' },
-] as const;
+export const musicTracks: MusicTrack[] = [{ id: 'race-day', label: 'Race Day', source: 'race-day.mp3' }] as const;
 
 export const defaultMusicTrackId = musicTracks[0].id;
-export const musicTrackFor = (id: string, tracks: readonly MusicTrack[] = musicTracks): MusicTrack => tracks.find(track => track.id === id) ?? tracks[0] ?? musicTracks[0];
+export const musicTrackFor = (id: string, tracks: readonly MusicTrack[] = musicTracks): MusicTrack =>
+  tracks.find((track) => track.id === id) ?? tracks[0] ?? musicTracks[0];

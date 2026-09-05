@@ -5,10 +5,21 @@ import type { RacePlan } from './types';
 
 const plan: RacePlan = {
   presetId: 'test',
-  phases: [{
-    name: 'Test phase', miles: '0–1', note: '', runDurationMs: 60_000, walkDurationMs: 30_000,
-    gelIntervalMs: 120_000, plannedCycles: 2, startsWith: 'RUN', effort: 'TEST', music: 'NONE', musicTrackId: 'race-day',
-  }],
+  phases: [
+    {
+      name: 'Test phase',
+      miles: '0–1',
+      note: '',
+      runDurationMs: 60_000,
+      walkDurationMs: 30_000,
+      gelIntervalMs: 120_000,
+      plannedCycles: 2,
+      startsWith: 'RUN',
+      effort: 'TEST',
+      music: 'NONE',
+      musicTrackId: 'race-day',
+    },
+  ],
 };
 
 describe('race session reducer', () => {

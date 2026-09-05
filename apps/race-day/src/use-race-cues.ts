@@ -23,12 +23,23 @@ export function useRaceCues({ planRef, sessionRef, dispatch, onInterval, onGel }
       const interval = intervalFor(planRef.current, session, now);
       const gel = gelFor(planRef.current, session, now);
       if (!session.lastInterval) dispatch({ type: 'MARK_INTERVAL', key: interval.key });
-      else if (session.lastInterval !== interval.key) { onInterval(interval.mode); dispatch({ type: 'MARK_INTERVAL', key: interval.key }); }
-      if (gel.number > session.lastDeliveredGelNumber) { onGel(); dispatch({ type: 'MARK_GEL_DELIVERED', number: gel.number }); }
+      else if (session.lastInterval !== interval.key) {
+        onInterval(interval.mode);
+        dispatch({ type: 'MARK_INTERVAL', key: interval.key });
+      }
+      if (gel.number > session.lastDeliveredGelNumber) {
+        onGel();
+        dispatch({ type: 'MARK_GEL_DELIVERED', number: gel.number });
+      }
     };
-    const onVisible = () => { if (!document.hidden) tick(); };
+    const onVisible = () => {
+      if (!document.hidden) tick();
+    };
     const id = window.setInterval(tick, RACE_CLOCK_TICK_MS);
     document.addEventListener('visibilitychange', onVisible);
-    return () => { window.clearInterval(id); document.removeEventListener('visibilitychange', onVisible); };
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [dispatch, onGel, onInterval, planRef, sessionRef]);
 }

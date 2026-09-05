@@ -3,8 +3,23 @@ import { configurationFromPreset } from './configs';
 import { defaultMusicTrackId, defaultNotificationSounds, defaultNotificationSoundVolumes } from './audio-library';
 import type { ViewMode } from './types';
 
-type LegacyPlan = { presetId: string; phases: import('./types').Phase[]; notificationSounds: import('./types').NotificationSoundSettings; notificationSoundVolumes: import('./types').NotificationSoundVolumes; musicVolume: number };
-type LegacyRace = { phase: number; anchor: number; pausedAt: number | null; pausedTotal: number; gelAnchor: number; gelFired: number; begun: boolean; lastInterval?: string };
+type LegacyPlan = {
+  presetId: string;
+  phases: import('./types').Phase[];
+  notificationSounds: import('./types').NotificationSoundSettings;
+  notificationSoundVolumes: import('./types').NotificationSoundVolumes;
+  musicVolume: number;
+};
+type LegacyRace = {
+  phase: number;
+  anchor: number;
+  pausedAt: number | null;
+  pausedTotal: number;
+  gelAnchor: number;
+  gelFired: number;
+  begun: boolean;
+  lastInterval?: string;
+};
 
 const planKey = 'nyc-race-day-plan-v5';
 const stateKey = 'nyc-race-day-state-v5';
@@ -27,8 +42,16 @@ const phaseSchema = z.object({
 const savedPlanSchema = z.object({
   presetId: z.string(),
   phases: z.array(phaseSchema).min(1),
-  notificationSounds: z.object({ run: z.string().optional(), walk: z.string().optional(), gel: z.string().optional() }).optional(),
-  notificationSoundVolumes: z.object({ run: z.enum(['quiet', 'normal', 'loud']).optional(), walk: z.enum(['quiet', 'normal', 'loud']).optional(), gel: z.enum(['quiet', 'normal', 'loud']).optional() }).optional(),
+  notificationSounds: z
+    .object({ run: z.string().optional(), walk: z.string().optional(), gel: z.string().optional() })
+    .optional(),
+  notificationSoundVolumes: z
+    .object({
+      run: z.enum(['quiet', 'normal', 'loud']).optional(),
+      walk: z.enum(['quiet', 'normal', 'loud']).optional(),
+      gel: z.enum(['quiet', 'normal', 'loud']).optional(),
+    })
+    .optional(),
   musicVolume: z.number().finite().optional(),
 });
 const savedRaceSchema = z.object({
@@ -64,33 +87,54 @@ export function loadPlan(): LegacyPlan {
         gel: savedVolumes?.gel ?? defaultNotificationSoundVolumes.gel,
       },
       musicVolume: Math.max(0, Math.min(1, plan.musicVolume ?? 0.78)),
-      phases: plan.phases.map(phase => ({ ...phase, musicTrackId: phase.musicTrackId ?? defaultMusicTrackId })),
+      phases: plan.phases.map((phase) => ({ ...phase, musicTrackId: phase.musicTrackId ?? defaultMusicTrackId })),
     };
+  } catch {
+    return legacyFallback();
   }
-  catch { return legacyFallback(); }
 }
 export function loadRace(): LegacyRace {
   try {
     const value: unknown = JSON.parse(localStorage.getItem(stateKey) ?? 'null');
     const result = savedRaceSchema.safeParse(value);
     return result.success ? result.data : legacyRaceFallback();
+  } catch {
+    return legacyRaceFallback();
   }
-  catch { return legacyRaceFallback(); }
 }
-const persist = (key: string, value: unknown): void => { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* Storage may be unavailable or full. */ } };
+const persist = (key: string, value: unknown): void => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    /* Storage may be unavailable or full. */
+  }
+};
 export const savePlan = (plan: LegacyPlan): void => persist(planKey, plan);
 export const saveRace = (race: LegacyRace): void => persist(stateKey, race);
-export const loadViewMode = (): ViewMode => z.enum(['simple', 'full']).catch('simple').parse(localStorage.getItem(viewModeKey));
+export const loadViewMode = (): ViewMode =>
+  z.enum(['simple', 'full']).catch('simple').parse(localStorage.getItem(viewModeKey));
 export const saveViewMode = (viewMode: ViewMode): void => persist(viewModeKey, viewMode);
 export function loadMusicPositions(): Record<string, number> {
   try {
     const value: unknown = JSON.parse(localStorage.getItem(musicPositionsKey) ?? '{}');
     const result = musicPositionsSchema.safeParse(value);
     return result.success ? result.data : {};
+  } catch {
+    return {};
   }
-  catch { return {}; }
 }
 export const saveMusicPositions = (positions: Record<string, number>): void => persist(musicPositionsKey, positions);
 
-const legacyFallback = (): LegacyPlan => { const configuration = configurationFromPreset(); return { ...configuration.plan, ...configuration.preferences }; };
-const legacyRaceFallback = (): LegacyRace => ({ phase: 0, anchor: Date.now(), pausedAt: null, pausedTotal: 0, gelAnchor: 0, gelFired: 0, begun: false });
+const legacyFallback = (): LegacyPlan => {
+  const configuration = configurationFromPreset();
+  return { ...configuration.plan, ...configuration.preferences };
+};
+const legacyRaceFallback = (): LegacyRace => ({
+  phase: 0,
+  anchor: Date.now(),
+  pausedAt: null,
+  pausedTotal: 0,
+  gelAnchor: 0,
+  gelFired: 0,
+  begun: false,
+});

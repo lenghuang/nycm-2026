@@ -26,26 +26,64 @@ export const initialRaceSession = (now = Date.now()): RaceSession => ({
 
 export function raceSessionReducer(session: RaceSession, action: RaceSessionAction, phases: Phase[]): RaceSession {
   switch (action.type) {
-    case 'START': return resetSession(session, session.phase, action.now, true, phases);
-    case 'PAUSE': return session.begun && !session.pausedAt ? { ...session, pausedAt: action.now } : session;
-    case 'RESUME': return session.pausedAt ? { ...session, pausedAt: null, pausedTotal: session.pausedTotal + action.now - session.pausedAt } : session;
-    case 'CHANGE_PHASE': return action.phase === session.phase ? session : resetSession(session, clampPhase(action.phase, phases), action.now, session.begun, phases);
+    case 'START':
+      return resetSession(session, session.phase, action.now, true, phases);
+    case 'PAUSE':
+      return session.begun && !session.pausedAt ? { ...session, pausedAt: action.now } : session;
+    case 'RESUME':
+      return session.pausedAt
+        ? { ...session, pausedAt: null, pausedTotal: session.pausedTotal + action.now - session.pausedAt }
+        : session;
+    case 'CHANGE_PHASE':
+      return action.phase === session.phase
+        ? session
+        : resetSession(session, clampPhase(action.phase, phases), action.now, session.begun, phases);
     case 'JUMP_INTERVAL': {
-      const offset = Math.max(-elapsed(session, action.now), intervalBoundaryDelta(phases, session, action.now, action.direction));
+      const offset = Math.max(
+        -elapsed(session, action.now),
+        intervalBoundaryDelta(phases, session, action.now, action.direction),
+      );
       const next = { ...session, anchor: session.anchor - offset, lastInterval: undefined };
       return { ...next, lastInterval: intervalFor(phases, next, action.now).key };
     }
-    case 'LOG_GEL': return !session.begun || session.pausedAt ? session : { ...session, gelScheduleAnchorElapsedMs: elapsed(session, action.now), lastDeliveredGelNumber: 0 };
-    case 'ADD_CYCLE': return { ...session, addedCyclesByPhase: { ...session.addedCyclesByPhase, [session.phase]: (session.addedCyclesByPhase[session.phase] ?? 0) + 1 } };
-    case 'MARK_INTERVAL': return session.lastInterval === action.key ? session : { ...session, lastInterval: action.key };
-    case 'MARK_GEL_DELIVERED': return action.number <= session.lastDeliveredGelNumber ? session : { ...session, lastDeliveredGelNumber: action.number };
-    case 'REPLACE_PLAN': return resetSession(session, 0, action.now, action.begun ?? false, phases);
+    case 'LOG_GEL':
+      return !session.begun || session.pausedAt
+        ? session
+        : { ...session, gelScheduleAnchorElapsedMs: elapsed(session, action.now), lastDeliveredGelNumber: 0 };
+    case 'ADD_CYCLE':
+      return {
+        ...session,
+        addedCyclesByPhase: {
+          ...session.addedCyclesByPhase,
+          [session.phase]: (session.addedCyclesByPhase[session.phase] ?? 0) + 1,
+        },
+      };
+    case 'MARK_INTERVAL':
+      return session.lastInterval === action.key ? session : { ...session, lastInterval: action.key };
+    case 'MARK_GEL_DELIVERED':
+      return action.number <= session.lastDeliveredGelNumber
+        ? session
+        : { ...session, lastDeliveredGelNumber: action.number };
+    case 'REPLACE_PLAN':
+      return resetSession(session, 0, action.now, action.begun ?? false, phases);
   }
 }
 
 function resetSession(session: RaceSession, phase: number, now: number, begun: boolean, phases: Phase[]): RaceSession {
-  const next: RaceSession = { ...session, phase, anchor: now, pausedAt: null, pausedTotal: 0, gelScheduleAnchorElapsedMs: 0, lastDeliveredGelNumber: 0, begun, lastInterval: undefined, addedCyclesByPhase: {} };
+  const next: RaceSession = {
+    ...session,
+    phase,
+    anchor: now,
+    pausedAt: null,
+    pausedTotal: 0,
+    gelScheduleAnchorElapsedMs: 0,
+    lastDeliveredGelNumber: 0,
+    begun,
+    lastInterval: undefined,
+    addedCyclesByPhase: {},
+  };
   return { ...next, lastInterval: phases.length ? intervalFor(phases, next, now).key : undefined };
 }
 
-const clampPhase = (phase: number, phases: Pick<Phase[], 'length'>): number => Math.max(0, Math.min(Math.max(0, phases.length - 1), phase));
+const clampPhase = (phase: number, phases: Pick<Phase[], 'length'>): number =>
+  Math.max(0, Math.min(Math.max(0, phases.length - 1), phase));

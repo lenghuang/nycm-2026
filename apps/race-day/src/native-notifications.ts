@@ -31,23 +31,30 @@ export async function requestNativeReminderPermission(): Promise<boolean> {
  * Replaces this app's pending race reminders with cues for the active phase.
  * The React timer remains the timing source; iOS owns delivery while locked.
  */
-export function synchronizeNativeRaceNotifications(plan: RacePlan, race: RaceSession, sounds: NotificationSoundSettings, volumes: NotificationSoundVolumes): Promise<void> {
+export function synchronizeNativeRaceNotifications(
+  plan: RacePlan,
+  race: RaceSession,
+  sounds: NotificationSoundSettings,
+  volumes: NotificationSoundVolumes,
+): Promise<void> {
   synchronization = synchronization
     .catch(() => undefined)
     .then(() => synchronizeNativeRaceNotificationsNow(plan, race, sounds, volumes));
   return synchronization;
 }
 
-async function synchronizeNativeRaceNotificationsNow(plan: RacePlan, race: RaceSession, sounds: NotificationSoundSettings, volumes: NotificationSoundVolumes): Promise<void> {
+async function synchronizeNativeRaceNotificationsNow(
+  plan: RacePlan,
+  race: RaceSession,
+  sounds: NotificationSoundSettings,
+  volumes: NotificationSoundVolumes,
+): Promise<void> {
   if (!isNativeNotificationPlatform()) return;
 
   // Cancel by this app's fixed ID range rather than touching unrelated local
   // notifications. The test ID clears a leftover cue from earlier builds too.
   await LocalNotifications.cancel({
-    notifications: [
-      { id: testNotificationId },
-      ...raceNotificationIds.map(id => ({ id })),
-    ],
+    notifications: [{ id: testNotificationId }, ...raceNotificationIds.map((id) => ({ id }))],
   });
 
   if (!race.begun || race.pausedAt || !plan.phases[race.phase]) return;
@@ -59,17 +66,28 @@ async function synchronizeNativeRaceNotificationsNow(plan: RacePlan, race: RaceS
   if (notifications.length) await LocalNotifications.schedule({ notifications });
 }
 
-function futurePhaseNotifications(plan: RacePlan, race: RaceSession, sounds: NotificationSoundSettings, volumes: NotificationSoundVolumes, now: number): LocalNotificationSchema[] {
+function futurePhaseNotifications(
+  plan: RacePlan,
+  race: RaceSession,
+  sounds: NotificationSoundSettings,
+  volumes: NotificationSoundVolumes,
+  now: number,
+): LocalNotificationSchema[] {
   const phase = plan.phases[race.phase];
   const phaseElapsed = Math.max(0, now - race.anchor - race.pausedTotal);
-  const cues = futureCueEvents(plan, race, now).slice(0, maximumRaceNotifications).map(event => ({
-    type: event.type,
-    atPhaseElapsed: event.atPhaseElapsed,
-    title: event.type === 'gel' ? 'Gel time' : `${event.mode} now`,
-    body: event.type === 'gel' ? `${phase.name} · take your next gel when you can.` : `${phase.name} · switch to ${event.mode?.toLowerCase()}.`,
-    soundId: event.type === 'gel' ? sounds.gel : event.mode === 'RUN' ? sounds.run : sounds.walk,
-    soundVolume: event.type === 'gel' ? volumes.gel : event.mode === 'RUN' ? volumes.run : volumes.walk,
-  }));
+  const cues = futureCueEvents(plan, race, now)
+    .slice(0, maximumRaceNotifications)
+    .map((event) => ({
+      type: event.type,
+      atPhaseElapsed: event.atPhaseElapsed,
+      title: event.type === 'gel' ? 'Gel time' : `${event.mode} now`,
+      body:
+        event.type === 'gel'
+          ? `${phase.name} · take your next gel when you can.`
+          : `${phase.name} · switch to ${event.mode?.toLowerCase()}.`,
+      soundId: event.type === 'gel' ? sounds.gel : event.mode === 'RUN' ? sounds.run : sounds.walk,
+      soundVolume: event.type === 'gel' ? volumes.gel : event.mode === 'RUN' ? volumes.run : volumes.walk,
+    }));
 
   const groupedCues = new Map<number, ScheduledCue[]>();
   for (const cue of cues) groupedCues.set(cue.atPhaseElapsed, [...(groupedCues.get(cue.atPhaseElapsed) ?? []), cue]);
@@ -78,15 +96,18 @@ function futurePhaseNotifications(plan: RacePlan, race: RaceSession, sounds: Not
     .sort(([left], [right]) => left - right)
     .slice(0, maximumRaceNotifications)
     .map(([atPhaseElapsed, cuesAtTime], index) => {
-      const intervalCue = cuesAtTime.find(cue => cue.type === 'interval');
-      const gelCue = cuesAtTime.find(cue => cue.type === 'gel');
+      const intervalCue = cuesAtTime.find((cue) => cue.type === 'interval');
+      const gelCue = cuesAtTime.find((cue) => cue.type === 'gel');
       return {
         id: raceNotificationIdStart + index,
         title: intervalCue && gelCue ? `${intervalCue.title} · Gel time` : cuesAtTime[0].title,
         body: intervalCue && gelCue ? `${intervalCue.body} Take your next gel when you can.` : cuesAtTime[0].body,
         schedule: { at: new Date(now + atPhaseElapsed - phaseElapsed) },
-        sound: notificationSoundSource((gelCue ?? intervalCue ?? cuesAtTime[0]).soundId, (gelCue ?? intervalCue ?? cuesAtTime[0]).soundVolume),
-        extra: { raceDay: true, types: cuesAtTime.map(cue => cue.type) },
+        sound: notificationSoundSource(
+          (gelCue ?? intervalCue ?? cuesAtTime[0]).soundId,
+          (gelCue ?? intervalCue ?? cuesAtTime[0]).soundVolume,
+        ),
+        extra: { raceDay: true, types: cuesAtTime.map((cue) => cue.type) },
       };
     });
 }

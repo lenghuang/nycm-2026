@@ -3,7 +3,11 @@ export type EffortLevel = 'RECOVERY' | 'CONTROLLED' | 'SURGE' | 'FINISH' | 'TEST
 export type MusicCue = 'NONE' | 'START';
 export type NotificationSoundSettings = { run: string; walk: string; gel: string };
 export type NotificationSoundVolume = 'quiet' | 'normal' | 'loud';
-export type NotificationSoundVolumes = { run: NotificationSoundVolume; walk: NotificationSoundVolume; gel: NotificationSoundVolume };
+export type NotificationSoundVolumes = {
+  run: NotificationSoundVolume;
+  walk: NotificationSoundVolume;
+  gel: NotificationSoundVolume;
+};
 export type ViewMode = 'simple' | 'full';
 
 export type Phase = {
@@ -20,7 +24,13 @@ export type Phase = {
   musicTrackId: string;
 };
 
-export type RacePlanPreset = { id: string; label: string; description: string; isTest: boolean; phases: Omit<Phase, 'musicTrackId'>[] };
+export type RacePlanPreset = {
+  id: string;
+  label: string;
+  description: string;
+  isTest: boolean;
+  phases: Omit<Phase, 'musicTrackId'>[];
+};
 /** The reusable strategy. It never changes when a runner extends a live phase. */
 export type RacePlan = {
   presetId: string;

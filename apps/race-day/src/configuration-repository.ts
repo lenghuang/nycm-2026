@@ -9,7 +9,10 @@ const sessionKey = 'nyc-race-day-session-v1';
 export function loadRaceConfiguration(): RaceConfiguration {
   const legacyPlan = loadPlan();
   const fallback = configurationFromPreset(legacyPlan.presetId);
-  return { plan: { presetId: legacyPlan.presetId, phases: legacyPlan.phases }, preferences: loadRunnerPreferences({ ...fallback.preferences, ...legacyPlan }) };
+  return {
+    plan: { presetId: legacyPlan.presetId, phases: legacyPlan.phases },
+    preferences: loadRunnerPreferences({ ...fallback.preferences, ...legacyPlan }),
+  };
 }
 
 export function saveRaceConfiguration(configuration: RaceConfiguration): void {
@@ -23,21 +26,31 @@ export function loadRunnerPreferences(fallback = defaultRunnerPreferences()): Ru
     return {
       notificationSounds: { ...fallback.notificationSounds, ...value.notificationSounds },
       notificationSoundVolumes: { ...fallback.notificationSoundVolumes, ...value.notificationSoundVolumes },
-      musicVolume: typeof value.musicVolume === 'number' ? Math.max(0, Math.min(1, value.musicVolume)) : fallback.musicVolume,
+      musicVolume:
+        typeof value.musicVolume === 'number' ? Math.max(0, Math.min(1, value.musicVolume)) : fallback.musicVolume,
       viewMode: value.viewMode === 'full' ? 'full' : 'simple',
     };
-  } catch { return fallback; }
+  } catch {
+    return fallback;
+  }
 }
 
 export function saveRunnerPreferences(preferences: RunnerPreferences): void {
-  try { localStorage.setItem(preferencesKey, JSON.stringify(preferences)); } catch { /* Storage may be unavailable or full. */ }
+  try {
+    localStorage.setItem(preferencesKey, JSON.stringify(preferences));
+  } catch {
+    /* Storage may be unavailable or full. */
+  }
 }
 
 export function loadRaceSession(): RaceSession {
   try {
     const value = JSON.parse(localStorage.getItem(sessionKey) ?? 'null') as Partial<RaceSession> | null;
-    if (value && typeof value === 'object' && typeof value.gelScheduleAnchorElapsedMs === 'number') return { ...initialRaceSession(), ...value, addedCyclesByPhase: value.addedCyclesByPhase ?? {} };
-  } catch { /* Fall through to migration. */ }
+    if (value && typeof value === 'object' && typeof value.gelScheduleAnchorElapsedMs === 'number')
+      return { ...initialRaceSession(), ...value, addedCyclesByPhase: value.addedCyclesByPhase ?? {} };
+  } catch {
+    /* Fall through to migration. */
+  }
   const legacy = loadRace();
   return {
     ...initialRaceSession(legacy.anchor),
@@ -53,7 +66,11 @@ export function loadRaceSession(): RaceSession {
 }
 
 export function saveRaceSession(session: RaceSession): void {
-  try { localStorage.setItem(sessionKey, JSON.stringify(session)); } catch { /* Storage may be unavailable or full. */ }
+  try {
+    localStorage.setItem(sessionKey, JSON.stringify(session));
+  } catch {
+    /* Storage may be unavailable or full. */
+  }
   // Keep the last session readable by pre-refactor builds during development.
   saveRace({ ...session, gelAnchor: session.gelScheduleAnchorElapsedMs, gelFired: session.lastDeliveredGelNumber });
 }

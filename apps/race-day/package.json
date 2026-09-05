@@ -8,6 +8,8 @@
     "build": "tsc -b && vite build",
     "check": "tsc -b --noEmit",
     "test": "vitest run",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"*.{json,ts}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"*.{json,ts}\"",
     "preview": "vite preview",
     "ios:sync": "bun run build && cap sync ios",
     "ios:open": "cap open ios"
@@ -27,6 +29,7 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.0.4",
+    "prettier": "^3.9.6",
     "typescript": "^5.9.3",
     "vite": "^7.1.7",
     "vite-plugin-pwa": "^1.0.3",

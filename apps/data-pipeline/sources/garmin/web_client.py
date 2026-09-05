@@ -13,30 +13,10 @@ _HARVEST_PAGES = [
             "sleep-service/stats/sleep/daily",
             "hrv-service/hrv/daily",
         ],
-        # Click the HRV card to force-load the detail widget
-        "clicks": [
-            "[data-testid*='hrv'], .hrv-widget, [class*='hrv'], [class*='HRV']",
-            "[data-testid*='body-battery'], [class*='body-battery'], [class*='bodyBattery']",
-        ],
     },
     {
         "url": f"{CONNECT_URL}/modern/activities",
         "patterns": ["activitylist-service/activities/search"],
-        "clicks": [],
-    },
-    {
-        "url": f"{CONNECT_URL}/app/body-battery",
-        "patterns": ["wellness-service/wellness/bodyBattery"],
-        "clicks": [],
-    },
-    {
-        "url": f"{CONNECT_URL}/modern/health-snapshot",
-        "patterns": [
-            "usersummary-service/stats/steps",
-            "usersummary-service/stats/heartRate",
-            "wellnessactivity-service/activity/summary/list",
-        ],
-        "clicks": [],
     },
 ]
 
@@ -133,17 +113,59 @@ class WebCookieGarminClient:
         result = self._get("hrv-service/hrv/daily")
         return result if isinstance(result, list) else result.get("hrv", [])
 
+    def _get_usersummary_for_date(self, date: str) -> dict:
+        """Navigate to a specific day's summary and capture usersummary/daily."""
+        captured: dict = {}
+
+        def on_response(response, cap=captured):
+            if "usersummary-service/usersummary/daily" in response.url and "dailySummariesCount" not in response.url and response.status == 200:
+                try:
+                    cap["data"] = response.json()
+                except Exception:  # noqa: BLE001
+                    pass
+
+        page = self._context.new_page()
+        page.on("response", on_response)
+        page.goto(f"{CONNECT_URL}/app/daily-summary/{date}", wait_until="networkidle")
+        page.close()
+        return captured.get("data", {})
+
+    def get_wellness_daily(self, start: str, end: str) -> list[dict]:
+        """Per-day wellness: steps, active calories, distance, RHR, body battery, stress."""
+        from datetime import date, timedelta
+        s = date.fromisoformat(start)
+        e = date.fromisoformat(end)
+        results = []
+        d = s
+        while d <= e:
+            summary = self._get_usersummary_for_date(d.isoformat())
+            if summary:
+                results.append({
+                    "calendarDate": summary.get("calendarDate"),
+                    "total_steps": summary.get("totalSteps"),
+                    "total_distance_meters": summary.get("totalDistanceMeters"),
+                    "active_calories": summary.get("activeKilocalories"),
+                    "total_calories": summary.get("totalKilocalories"),
+                    "resting_heart_rate": summary.get("restingHeartRate"),
+                    "avg_stress": summary.get("averageStressLevel"),
+                    "body_battery_charged": summary.get("bodyBatteryChargedValue"),
+                    "body_battery_drained": summary.get("bodyBatteryDrainedValue"),
+                    "body_battery_highest": summary.get("bodyBatteryHighestValue"),
+                    "body_battery_lowest": summary.get("bodyBatteryLowestValue"),
+                    "moderate_intensity_min": summary.get("moderateIntensityMinutes"),
+                    "vigorous_intensity_min": summary.get("vigorousIntensityMinutes"),
+                })
+            d += timedelta(days=1)
+        return results
+
     def get_daily_steps(self, start: str, end: str) -> list[dict]:
-        result = self._get("wellnessactivity-service/activity/summary/list")
-        return result if isinstance(result, list) else []
+        return self.get_wellness_daily(start, end)
 
     def get_rhr_daily(self, start: str, end: str) -> list[dict]:
-        result = self._get("usersummary-service/stats/heartRate")
-        return result if isinstance(result, list) else []
+        return self.get_wellness_daily(start, end)
 
     def get_body_battery(self, start: str, end: str) -> list[dict]:
-        result = self._get("wellness-service/wellness/bodyBattery")
-        return result if isinstance(result, list) else []
+        return self.get_wellness_daily(start, end)
 
     def get_activities_by_date(self, start: str, end: str) -> list[dict]:
         result = self._get("activitylist-service/activities/search")

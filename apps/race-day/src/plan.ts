@@ -1,18 +1,21 @@
-import type { IntervalState, Phase, RaceState } from './types';
+import type { IntervalState, Phase, RaceSession, RaceState } from './types';
+
+type TimingSession = RaceSession | RaceState;
 
 export const initialRace = (): RaceState => ({ phase: 0, anchor: Date.now(), pausedAt: null, pausedTotal: 0, gelAnchor: 0, gelFired: 0, begun: false });
-export const elapsed = (race: RaceState, currentTime: number): number => Math.max(0, (race.pausedAt ?? currentTime) - race.anchor - race.pausedTotal);
+export const elapsed = (race: TimingSession, currentTime: number): number => Math.max(0, (race.pausedAt ?? currentTime) - race.anchor - race.pausedTotal);
 
-export function intervalFor(plan: Phase[], race: RaceState, currentTime: number): IntervalState {
+export function intervalFor(plan: Phase[], race: TimingSession, currentTime: number): IntervalState {
   const phase = plan[race.phase] ?? plan[0];
   const runMs = Math.max(1_000, phase.runDurationMs);
   const walkMs = Math.max(1_000, phase.walkDurationMs);
   const cycle = runMs + walkMs;
   const elapsedMs = elapsed(race, currentTime);
   const inCycle = elapsedMs % cycle;
-  const running = phase.startsWith === 'WALK' ? inCycle >= walkMs : inCycle < runMs;
-  const modeStart = running ? (phase.startsWith === 'WALK' ? walkMs : 0) : (phase.startsWith === 'WALK' ? 0 : runMs);
-  const endOfMode = running ? cycle : (phase.startsWith === 'WALK' ? walkMs : cycle);
+  const startsWithWalk = phase.startsWith === 'WALK';
+  const running = startsWithWalk ? inCycle >= walkMs : inCycle < runMs;
+  const modeStart = startsWithWalk ? (running ? walkMs : 0) : (running ? 0 : runMs);
+  const endOfMode = startsWithWalk ? (running ? cycle : walkMs) : (running ? runMs : cycle);
   return {
     mode: running ? 'RUN' : 'WALK',
     left: Math.ceil((endOfMode - inCycle) / 1000),
@@ -21,26 +24,27 @@ export function intervalFor(plan: Phase[], race: RaceState, currentTime: number)
   };
 }
 
-export function gelFor(plan: Phase[], race: RaceState, currentTime: number): { number: number; left: number } {
+export function gelFor(plan: Phase[], race: TimingSession, currentTime: number): { number: number; left: number } {
   const every = Math.max(1_000, (plan[race.phase] ?? plan[0]).gelIntervalMs);
-  const elapsedSinceGel = Math.max(0, elapsed(race, currentTime) - race.gelAnchor);
+  const gelAnchor = 'gelScheduleAnchorElapsedMs' in race ? race.gelScheduleAnchorElapsedMs : race.gelAnchor;
+  const elapsedSinceGel = Math.max(0, elapsed(race, currentTime) - gelAnchor);
   return { number: Math.floor(elapsedSinceGel / every), left: Math.ceil((every - (elapsedSinceGel % every)) / 1000) };
 }
 
-export function cycleSummaryFor(plan: Phase[], race: RaceState, currentTime: number): { done: number; left: number } {
+export function cycleSummaryFor(plan: Phase[], race: TimingSession, currentTime: number): { done: number; left: number } {
   const phase = plan[race.phase] ?? plan[0];
   const cycleMs = Math.max(1_000, phase.runDurationMs) + Math.max(1_000, phase.walkDurationMs);
   const done = Math.min(phase.plannedCycles, Math.floor(elapsed(race, currentTime) / cycleMs));
   return { done, left: Math.max(0, phase.plannedCycles - done) };
 }
 
-export function phaseProgressFor(plan: Phase[], race: RaceState, currentTime: number): number {
+export function phaseProgressFor(plan: Phase[], race: TimingSession, currentTime: number): number {
   const phase = plan[race.phase] ?? plan[0];
   const cycleMs = Math.max(1_000, phase.runDurationMs) + Math.max(1_000, phase.walkDurationMs);
   return Math.min(1, elapsed(race, currentTime) / (cycleMs * Math.max(1, phase.plannedCycles)));
 }
 
-export function cueJumpOffset(plan: Phase[], race: RaceState, currentTime: number, direction: -1 | 1): number {
+export function cueJumpOffset(plan: Phase[], race: TimingSession, currentTime: number, direction: -1 | 1): number {
   const phase = plan[race.phase] ?? plan[0];
   const runMs = Math.max(1_000, phase.runDurationMs);
   const walkMs = Math.max(1_000, phase.walkDurationMs);
@@ -48,8 +52,8 @@ export function cueJumpOffset(plan: Phase[], race: RaceState, currentTime: numbe
   const inCycle = elapsed(race, currentTime) % cycle;
   const startsWithWalk = phase.startsWith === 'WALK';
   const running = startsWithWalk ? inCycle >= walkMs : inCycle < runMs;
-  const modeStart = running ? (startsWithWalk ? walkMs : 0) : (startsWithWalk ? 0 : runMs);
-  const modeEnd = running ? cycle : (startsWithWalk ? walkMs : cycle);
+  const modeStart = startsWithWalk ? (running ? walkMs : 0) : (running ? 0 : runMs);
+  const modeEnd = startsWithWalk ? (running ? cycle : walkMs) : (running ? runMs : cycle);
   if (direction === 1) return modeEnd - inCycle || (running ? walkMs : runMs);
   if (inCycle > modeStart) return -(inCycle - modeStart);
   return -(modeStart === 0 ? (running ? walkMs : runMs) : modeStart);

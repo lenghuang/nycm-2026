@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "check": "tsc -b --noEmit",
+    "test": "vitest run",
     "preview": "vite preview",
     "ios:sync": "bun run build && cap sync ios",
     "ios:open": "cap open ios"
@@ -15,8 +16,11 @@
     "@capacitor/core": "^8.5.1",
     "@capacitor/ios": "^8.5.1",
     "@capacitor/local-notifications": "^8.3.1",
+    "@use-gesture/react": "^10.3.1",
+    "idb": "^8.0.3",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.5.1",
@@ -25,6 +29,7 @@
     "@vitejs/plugin-react": "^5.0.4",
     "typescript": "^5.9.3",
     "vite": "^7.1.7",
-    "vite-plugin-pwa": "^1.0.3"
+    "vite-plugin-pwa": "^1.0.3",
+    "vitest": "^5.0.0"
   }
 }

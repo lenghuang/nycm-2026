@@ -4,19 +4,6 @@ import dlt
 
 from .client import GarminClient
 
-_MAX_RANGE_DAYS = 28
-
-
-def _date_chunks(start: str, end: str):
-    """Yield (chunk_start, chunk_end) pairs in 28-day windows."""
-    from datetime import date
-    s = date.fromisoformat(start)
-    e = date.fromisoformat(end)
-    while s <= e:
-        chunk_end = min(s + timedelta(days=_MAX_RANGE_DAYS - 1), e)
-        yield s.isoformat(), chunk_end.isoformat()
-        s = chunk_end + timedelta(days=1)
-
 
 def _at_least_7_days(cursor_date: str) -> str:
     """Ensure we always request at least 7 days — Garmin stats API minimum."""
@@ -33,21 +20,14 @@ def garmin_source(client: GarminClient, start_date: str):
     def sleep_daily(cursor=dlt.sources.incremental("calendarDate", initial_value=start_date)):  # noqa: B008
         yield from client.get_sleep_daily(_at_least_7_days(cursor.last_value), today)
 
-    @dlt.resource(name="steps_daily", write_disposition="merge", primary_key="calendarDate")
-    def steps_daily(cursor=dlt.sources.incremental("calendarDate", initial_value=start_date)):  # noqa: B008
-        yield from client.get_daily_steps(_at_least_7_days(cursor.last_value), today)
-
-    @dlt.resource(name="rhr_daily", write_disposition="merge", primary_key="calendarDate")
-    def rhr_daily(cursor=dlt.sources.incremental("calendarDate", initial_value=start_date)):  # noqa: B008
-        yield from client.get_rhr_daily(_at_least_7_days(cursor.last_value), today)
-
-    @dlt.resource(name="body_battery", write_disposition="merge", primary_key="calendarDate")
-    def body_battery(cursor=dlt.sources.incremental("calendarDate", initial_value=start_date)):  # noqa: B008
-        yield from client.get_body_battery(_at_least_7_days(cursor.last_value), today)
-
     @dlt.resource(name="hrv_daily", write_disposition="merge", primary_key="calendarDate")
     def hrv_daily(cursor=dlt.sources.incremental("calendarDate", initial_value=start_date)):  # noqa: B008
         yield from client.get_hrv_data_range(_at_least_7_days(cursor.last_value), today)
+
+    @dlt.resource(name="wellness_daily", write_disposition="merge", primary_key="calendarDate")
+    def wellness_daily(cursor=dlt.sources.incremental("calendarDate", initial_value=start_date)):  # noqa: B008
+        # Page-by-page navigation — no API range minimum, use full cursor
+        yield from client.get_wellness_daily(cursor.last_value, today)
 
     @dlt.resource(name="activities", write_disposition="merge", primary_key="activity_id")
     def activities(cursor=dlt.sources.incremental("start_time_local", initial_value=start_date)):  # noqa: B008
@@ -68,8 +48,6 @@ def garmin_source(client: GarminClient, start_date: str):
             }
 
     yield sleep_daily
-    yield steps_daily
-    yield rhr_daily
-    yield body_battery
     yield hrv_daily
+    yield wellness_daily
     yield activities

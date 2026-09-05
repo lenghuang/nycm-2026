@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useDrag } from '@use-gesture/react';
 import { getPreset, planFromPreset, presets } from './configs';
 import { cueJumpOffset, cycleSummaryFor, elapsed, formatTime, gelFor, intervalFor, phaseProgressFor } from './plan';
 import { loadMusicPositions, loadPlan, loadRace, loadViewMode, saveMusicPositions, savePlan, saveRace, saveViewMode } from './storage';
@@ -33,7 +34,6 @@ export default function App() {
   const musicVolumeRef = useRef(activePlan.musicVolume);
   const musicPositionsRef = useRef(loadMusicPositions());
   const keepAliveStarted = useRef(false);
-  const touchX = useRef<number | null>(null);
   const suppressTapUntil = useRef(0);
 
   useEffect(() => { planRef.current = plan; savePlan(activePlan); }, [activePlan, plan]);
@@ -205,6 +205,14 @@ export default function App() {
     window.setTimeout(() => beep(1050, 0.18), 180);
     navigator.vibrate?.([120, 80, 120]);
   };
+  const addCycle = () => {
+    const nextPlan: ActivePlan = {
+      ...activePlan,
+      phases: activePlan.phases.map((item, index) => index === race.phase ? { ...item, plannedCycles: item.plannedCycles + 1 } : item),
+    };
+    setActivePlan(nextPlan);
+    planRef.current = nextPlan.phases;
+  };
   const addMusicTrack = async (file: File) => {
     const track = await importMusicTrack(file);
     setLibraryTracks(tracks => [...tracks, track]);
@@ -237,19 +245,24 @@ export default function App() {
     saveMusicPositions(musicPositionsRef.current);
     setMusicPosition(position);
   };
+  const bindPhaseSwipe = useDrag(({ last, movement: [movementX], velocity: [velocityX], direction: [directionX], tap, event }) => {
+    if (viewMode !== 'full' || !last || tap) return;
+    if (event.target instanceof Element && event.target.closest('button, input, select, textarea, label, .music-player')) return;
+    if (Math.abs(movementX) < 48 && velocityX < 0.35) return;
+    suppressTapUntil.current = Date.now() + 500;
+    changePhase(directionX < 0 ? 1 : -1);
+  }, { axis: 'x', filterTaps: true });
   const style: RaceStyle = { '--accent': theme.accent, '--deep': theme.deep };
 
   return <main className={`race ${viewMode === 'simple' ? 'race-simple' : 'race-full'}`} style={style}
     onClick={event => { if (viewMode === 'full' && !(event.target as Element).closest('button') && Date.now() > suppressTapUntil.current) togglePause(); }}
-    onPointerDown={event => { if (viewMode === 'full' && event.pointerType === 'touch') touchX.current = event.clientX; }}
-    onPointerUp={event => { if (viewMode !== 'full' || event.pointerType !== 'touch' || touchX.current === null) return; const delta = event.clientX - touchX.current; touchX.current = null; if (Math.abs(delta) > 48) { suppressTapUntil.current = Date.now() + 500; jumpCue(delta < 0 ? 1 : -1); } }}
-    onPointerCancel={() => { touchX.current = null; }}>
+    >
     <audio ref={audioRef} loop playsInline preload="auto" />
     <header className="top"><span className="brand">NYC · RACE DAY</span><span className="top-actions"><button className="view-button" onClick={() => setViewMode(viewMode === 'simple' ? 'full' : 'simple')}>{viewMode === 'simple' ? 'Full controls' : 'Now view'}</button>{viewMode === 'full' && <button className="icon-button" aria-label="Open settings" onClick={openSettings}>⚙</button>}</span></header>
     {viewMode === 'simple'
       ? <SimpleRaceScreen phase={phase} phaseLabel={preset.isTest ? 'TEST CONFIG' : `PHASE ${race.phase + 1} / ${plan.length}`} intervalMode={interval.mode} intervalLeft={formatTime(interval.left)} intervalProgress={interval.progress} phaseProgress={phaseProgress} cycleLabel={`CYCLE ${Math.min(phase.plannedCycles, cycles.done + 1)} OF ${phase.plannedCycles}`} gelLeft={formatTime(gel.left)} paused={Boolean(race.pausedAt)} trackLabel={musicTrack.label} musicPlaying={musicPlaying} musicPosition={musicPosition} musicDuration={musicDuration} onToggleMusic={toggleMusic} onSeekMusic={seekMusic} />
-      : <><section className="body"><span className="phase-count">{preset.isTest ? 'TEST CONFIG' : `PHASE ${race.phase + 1} / ${plan.length}`} · {theme.label}</span><h1>{phase.name}</h1><span className="miles">{phase.miles}</span><p className="note">{phase.note}</p>
-        <div className="interval"><span className="mode">{interval.mode}</span><strong>{formatTime(interval.left)}</strong>{race.pausedAt && <span className="paused">PAUSED</span>}<ProgressIndicators intervalProgress={interval.progress} phaseProgress={phaseProgress} cycleLabel={`CYCLE ${Math.min(phase.plannedCycles, cycles.done + 1)} OF ${phase.plannedCycles}`} /><button className="gel-action" disabled={Boolean(race.pausedAt)} onClick={event => { event.stopPropagation(); logGelEarly(); }}><i /> GEL IN <b>{formatTime(gel.left)}</b><small>LOG EARLY</small></button><MusicPlayer label={musicTrack.label} isPlaying={musicPlaying} position={musicPosition} duration={musicDuration} onToggle={toggleMusic} onSeek={seekMusic} />{phase.music === 'START' && <span className="music-cue">♫ MUSIC STARTS IN THIS PHASE</span>}<div className="cue-controls"><button onClick={event => { event.stopPropagation(); jumpCue(-1); }}>↶ Previous interval</button><button onClick={event => { event.stopPropagation(); jumpCue(1); }}>Next interval ↷</button></div><span className="tap-hint">Tap to {race.pausedAt ? 'resume' : 'pause'} · swipe left/right for intervals · use arrows to change phase</span></div>
+      : <><section className="body" {...bindPhaseSwipe()}><span className="phase-count">{preset.isTest ? 'TEST CONFIG' : `PHASE ${race.phase + 1} / ${plan.length}`} · {theme.label}</span><h1>{phase.name}</h1><span className="miles">{phase.miles}</span><p className="note">{phase.note}</p>
+        <div className="interval"><span className="mode">{interval.mode}</span><strong>{formatTime(interval.left)}</strong>{race.pausedAt && <span className="paused">PAUSED</span>}<ProgressIndicators intervalProgress={interval.progress} phaseProgress={phaseProgress} cycleLabel={`CYCLE ${Math.min(phase.plannedCycles, cycles.done + 1)} OF ${phase.plannedCycles}`} /><button className="gel-action" disabled={Boolean(race.pausedAt)} onClick={event => { event.stopPropagation(); logGelEarly(); }}><i /> GEL IN <b>{formatTime(gel.left)}</b><small>LOG EARLY</small></button><MusicPlayer label={musicTrack.label} isPlaying={musicPlaying} position={musicPosition} duration={musicDuration} onToggle={toggleMusic} onSeek={seekMusic} />{phase.music === 'START' && <span className="music-cue">♫ MUSIC STARTS IN THIS PHASE</span>}<div className="cue-controls"><button onClick={event => { event.stopPropagation(); jumpCue(-1); }}>↶ Previous interval</button><button onClick={event => { event.stopPropagation(); jumpCue(1); }}>Next interval ↷</button><button onClick={event => { event.stopPropagation(); addCycle(); }}>＋ Add cycle</button></div><span className="tap-hint">Tap to {race.pausedAt ? 'resume' : 'pause'} · swipe left/right to change phase</span></div>
       </section>
       <footer className="phase-footer"><span className="phase-skip">PHASE<br /><b>{race.phase + 1} / {plan.length}</b></span><span className="controls"><button onClick={event => { event.stopPropagation(); changePhase(-1); }} aria-label="Previous phase">←</button><button onClick={event => { event.stopPropagation(); changePhase(1); }} aria-label="Next phase">→</button></span><span className="next">{next ? <>NEXT PHASE<br />{next.name}</> : <>FINISH<br />STRONG</>}</span></footer></>}
     {!race.begun && <div className="intro"><div className="intro-actions"><button className="start" onClick={startRace}>Start race day<small>Sound + lock-screen reminders activate after one tap</small></button></div></div>}
@@ -283,7 +296,7 @@ function SoundSelect({ value, volume, onChange, onVolumeChange, onPreview }: { v
 
 function MusicPlayer({ label, isPlaying, position, duration, onToggle, onSeek, compact = false }: { label: string; isPlaying: boolean; position: number; duration: number; onToggle: () => void; onSeek: (position: number) => void; compact?: boolean }) {
   const hasDuration = duration > 0;
-  return <section className={`music-player ${compact ? 'music-player-compact' : ''}`} onClick={event => event.stopPropagation()}><button className="music-toggle" onClick={onToggle}><span>NOW PLAYING</span><strong>{label}</strong><b>{isPlaying ? '❚❚ Pause' : '▶ Play'}</b></button>{!compact && <div className="music-seek"><input type="range" min="0" max={hasDuration ? duration : 1} step="0.1" value={hasDuration ? Math.min(position, duration) : 0} disabled={!hasDuration} aria-label="Music position" onChange={event => onSeek(Number(event.target.value))} /><span>{formatTime(Math.floor(position))} / {hasDuration ? formatTime(Math.floor(duration)) : '--:--'}</span></div>}</section>;
+  return <section className={`music-player ${compact ? 'music-player-compact' : ''}`} onPointerDown={event => event.stopPropagation()} onPointerMove={event => event.stopPropagation()} onClick={event => event.stopPropagation()}><button className="music-toggle" onClick={onToggle} aria-label={`${isPlaying ? 'Pause' : 'Play'} ${label}`}><span aria-hidden="true">♫</span><strong>{label}</strong><b>{isPlaying ? '❚❚' : '▶'}</b></button>{!compact && <div className="music-seek"><input type="range" min="0" max={hasDuration ? duration : 1} step="0.1" value={hasDuration ? Math.min(position, duration) : 0} disabled={!hasDuration} aria-label="Music position" onChange={event => onSeek(Number(event.target.value))} /><span>{formatTime(Math.floor(position))} / {hasDuration ? formatTime(Math.floor(duration)) : '--:--'}</span></div>}</section>;
 }
 
 function ProgressIndicators({ intervalProgress, phaseProgress, cycleLabel }: { intervalProgress: number; phaseProgress: number; cycleLabel: string }) {

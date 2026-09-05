@@ -36,3 +36,4 @@ __pycache__/
 apps/data-pipeline/.dlt/pipelines/
 
 .DS_Store
+.playwright-mcp

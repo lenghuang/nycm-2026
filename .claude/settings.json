@@ -18,7 +18,8 @@
       "WebFetch(domain:connect.garmin.com)",
       "Read(//Users/lenhuang/**)",
       "Read(//Users/lenhuang/.duckdb/**)",
-      "Read(//Users/lenhuang/.local/share/**)"
+      "Read(//Users/lenhuang/.local/share/**)",
+      "mcp__playwright__*"
     ],
     "additionalDirectories": [
       "/Users/lenhuang/src/misc/nycm-2026"

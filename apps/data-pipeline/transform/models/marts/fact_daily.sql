@@ -52,6 +52,15 @@ SELECT
   s.sleep_start_utc,
   s.sleep_end_utc,
 
+  -- wellness (garmin)
+  gh.total_steps,
+  gh.total_distance_miles,
+  gh.active_calories,
+  gh.resting_heart_rate,
+  gh.body_battery_charged,
+  gh.body_battery_drained,
+  gh.avg_stress,
+
   -- running (garmin activities)
   r.run_miles,
   r.run_minutes,
@@ -76,9 +85,10 @@ SELECT
   n.trend_weight_lbs,
 
 FROM date_spine d
-LEFT JOIN fitness.dim_training_week  w  ON d.date BETWEEN w.start_date AND w.end_date
-LEFT JOIN fitness.dim_training_phase p  ON w.phase_id = p.phase_id
-LEFT JOIN fitness.stg_garmin_sleep   s  ON s.date = d.date
-LEFT JOIN run_daily                  r  ON r.date = d.date
-LEFT JOIN strength_daily             st ON st.session_date = d.date
-LEFT JOIN fitness.stg_macrofactor_daily n ON n.date = d.date
+LEFT JOIN fitness.dim_training_week       w  ON d.date BETWEEN w.start_date AND w.end_date
+LEFT JOIN fitness.dim_training_phase      p  ON w.phase_id = p.phase_id
+LEFT JOIN fitness.stg_garmin_sleep        s  ON s.date = d.date
+LEFT JOIN fitness.stg_garmin_wellness_daily gh ON gh.date = d.date
+LEFT JOIN run_daily                       r  ON r.date = d.date
+LEFT JOIN strength_daily                  st ON st.session_date = d.date
+LEFT JOIN fitness.stg_macrofactor_daily   n  ON n.date = d.date

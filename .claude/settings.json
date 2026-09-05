@@ -11,7 +11,14 @@
       "Bash(mkdir -p /Users/lenhuang/src/misc/nycm-2026/.vscode)",
       "Bash(uv run *)",
       "Bash(uv pip *)",
-      "Bash(uv sync *)"
+      "Bash(uv sync *)",
+      "WebFetch(domain:community.garmin.com)",
+      "WebFetch(domain:www.reddit.com)",
+      "WebFetch(domain:tapiriik.com)",
+      "WebFetch(domain:connect.garmin.com)",
+      "Read(//Users/lenhuang/**)",
+      "Read(//Users/lenhuang/.duckdb/**)",
+      "Read(//Users/lenhuang/.local/share/**)"
     ],
     "additionalDirectories": [
       "/Users/lenhuang/src/misc/nycm-2026"

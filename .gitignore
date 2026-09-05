@@ -5,6 +5,7 @@ apps/race-day/ios/App/Pods/
 apps/race-day/ios/App/build/
 apps/race-day/ios/App/App.xcworkspace/xcuserdata/
 apps/race-day/public/race-day.mp3
+apps/race-day/public/music/*.mp3
 Prospa @ Coachella 2026 - Yuma Tent \[bWIth_h1s-E\].mp3
 *.tsbuildinfo
 *.env
@@ -20,6 +21,11 @@ __pycache__/
 
 # dlt pipeline state
 apps/data-pipeline/.dlt/pipelines/
+
+# SQLMesh state
+apps/data-pipeline/transform/.sqlmesh/
+.cache/
+logs/
 
 # Python
 __pycache__/

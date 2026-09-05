@@ -11,6 +11,7 @@ class GarminSettings(BaseSettings):
         env_prefix="GARMIN_",
         env_file=str(_ROOT / ".env"),
         env_file_encoding="utf-8",
+        extra="ignore",
     )
 
     email: str
@@ -24,6 +25,7 @@ class MacroFactorSettings(BaseSettings):
         env_prefix="MACROFACTOR_",
         env_file=str(_ROOT / ".env"),
         env_file_encoding="utf-8",
+        extra="ignore",
     )
 
     export_path: Path = Field(
@@ -36,6 +38,7 @@ class HevySettings(BaseSettings):
         env_prefix="HEVY_",
         env_file=str(_ROOT / ".env"),
         env_file_encoding="utf-8",
+        extra="ignore",
     )
 
     export_path: Path = Field(default=_ROOT / "data" / "raw" / "hevy" / "workout_data.csv")

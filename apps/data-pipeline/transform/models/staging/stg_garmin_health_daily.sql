@@ -1,21 +1,18 @@
 MODEL (
   name fitness.stg_garmin_health_daily,
   kind VIEW,
-  description 'Garmin daily health metrics. Field names verified against pilot_garmin.py output.'
+  description 'Garmin daily health metrics. TODO: populate once steps_daily/rhr_daily/body_battery/hrv_daily tables are loaded.'
 );
 
--- TODO: verify exact field names by running scripts/pilot_garmin.py
--- and checking raw_garmin.steps_daily, rhr_daily, body_battery, hrv_daily in DuckDB
+-- Placeholder until the health metric resources are confirmed working.
+-- Tables needed: raw_garmin.steps_daily, raw_garmin.rhr_daily,
+--                raw_garmin.body_battery, raw_garmin.hrv_daily
 SELECT
-  s.calendar_date::DATE AS date,
-  s.total_steps,
-  s.total_distance_meters,
-  s.active_calories,
-  r.resting_heart_rate    AS resting_hr,
-  b.charged               AS body_battery_charged,
-  b.drained               AS body_battery_drained,
-  h.hrv_weekly_average    AS hrv_weekly_avg,
-FROM raw_garmin.steps_daily s
-LEFT JOIN raw_garmin.rhr_daily   r ON r.calendar_date = s.calendar_date
-LEFT JOIN raw_garmin.body_battery b ON b.calendar_date = s.calendar_date
-LEFT JOIN raw_garmin.hrv_daily   h ON h.calendar_date = s.calendar_date
+  NULL::DATE    AS date,
+  NULL::INTEGER AS total_steps,
+  NULL::INTEGER AS active_calories,
+  NULL::INTEGER AS resting_hr,
+  NULL::INTEGER AS body_battery_charged,
+  NULL::INTEGER AS body_battery_drained,
+  NULL::DOUBLE  AS hrv_weekly_avg,
+WHERE 1 = 0

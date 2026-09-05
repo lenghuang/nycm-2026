@@ -1,0 +1,10 @@
+gateways:
+  duckdb:
+    connection:
+      type: duckdb
+      database: ../data/fitness.duckdb
+
+default_gateway: duckdb
+
+model_defaults:
+  dialect: duckdb

@@ -18,7 +18,6 @@ SELECT
   h.volume_lbs,
   h.distance_miles,
   h.duration_seconds,
-  h.rpe,
   w.week_num          AS training_week,
   w.phase_id,
   p.phase_name,

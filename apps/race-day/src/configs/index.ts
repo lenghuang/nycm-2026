@@ -1,4 +1,4 @@
-import type { ActivePlan, RaceConfiguration, RacePlan, RacePlanPreset, RunnerPreferences } from '../types';
+import type { RaceConfiguration, RacePlan, RacePlanPreset, RunnerPreferences } from '../types';
 import { defaultMusicTrackId, defaultNotificationSounds, defaultNotificationSoundVolumes } from '../audio-library';
 import { intervalDemo } from './interval-demo';
 import { nycmStrategy } from './nycm-strategy';
@@ -20,5 +20,3 @@ export const defaultRunnerPreferences = (): RunnerPreferences => ({
     viewMode: 'simple',
   });
 export const configurationFromPreset = (id = defaultPresetId): RaceConfiguration => ({ plan: racePlanFromPreset(id), preferences: defaultRunnerPreferences() });
-/** @deprecated Use configurationFromPreset. */
-export const planFromPreset = (id = defaultPresetId): ActivePlan => ({ ...racePlanFromPreset(id), ...defaultRunnerPreferences() });

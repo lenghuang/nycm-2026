@@ -36,6 +36,8 @@ export type RunnerPreferences = {
 };
 
 export type RaceConfiguration = { plan: RacePlan; preferences: RunnerPreferences };
+/** Mutable settings-form data; never used as a live race model. */
+export type RaceSettingsDraft = RacePlan & Omit<RunnerPreferences, 'viewMode'>;
 
 /** The mutable record of one execution of a race plan. */
 export type RaceSession = {
@@ -49,10 +51,5 @@ export type RaceSession = {
   lastInterval?: string;
   addedCyclesByPhase: Record<number, number>;
 };
-
-/** @deprecated Use RaceConfiguration. Kept only to read pre-refactor saved data. */
-export type ActivePlan = RacePlan & Omit<RunnerPreferences, 'viewMode'>;
-/** @deprecated Use RaceSession. Kept only to read pre-refactor saved data. */
-export type RaceState = Omit<RaceSession, 'gelScheduleAnchorElapsedMs' | 'lastDeliveredGelNumber' | 'addedCyclesByPhase'> & { gelAnchor: number; gelFired: number };
 
 export type IntervalState = { mode: IntervalMode; left: number; key: string; progress: number };

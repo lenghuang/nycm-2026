@@ -1,8 +1,10 @@
 import { z } from 'zod';
-import { planFromPreset } from './configs';
+import { configurationFromPreset } from './configs';
 import { defaultMusicTrackId, defaultNotificationSounds, defaultNotificationSoundVolumes } from './audio-library';
-import { initialRace } from './plan';
-import type { ActivePlan, RaceState, ViewMode } from './types';
+import type { ViewMode } from './types';
+
+type LegacyPlan = { presetId: string; phases: import('./types').Phase[]; notificationSounds: import('./types').NotificationSoundSettings; notificationSoundVolumes: import('./types').NotificationSoundVolumes; musicVolume: number };
+type LegacyRace = { phase: number; anchor: number; pausedAt: number | null; pausedTotal: number; gelAnchor: number; gelFired: number; begun: boolean; lastInterval?: string };
 
 const planKey = 'nyc-race-day-plan-v5';
 const stateKey = 'nyc-race-day-state-v5';
@@ -41,11 +43,11 @@ const savedRaceSchema = z.object({
 });
 const musicPositionsSchema = z.record(z.string(), z.number().finite().nonnegative());
 
-export function loadPlan(): ActivePlan {
+export function loadPlan(): LegacyPlan {
   try {
     const value: unknown = JSON.parse(localStorage.getItem(planKey) ?? 'null');
     const result = savedPlanSchema.safeParse(value);
-    if (!result.success) return planFromPreset();
+    if (!result.success) return legacyFallback();
     const plan = result.data;
     const savedSounds = plan.notificationSounds;
     const savedVolumes = plan.notificationSoundVolumes;
@@ -65,19 +67,19 @@ export function loadPlan(): ActivePlan {
       phases: plan.phases.map(phase => ({ ...phase, musicTrackId: phase.musicTrackId ?? defaultMusicTrackId })),
     };
   }
-  catch { return planFromPreset(); }
+  catch { return legacyFallback(); }
 }
-export function loadRace(): RaceState {
+export function loadRace(): LegacyRace {
   try {
     const value: unknown = JSON.parse(localStorage.getItem(stateKey) ?? 'null');
     const result = savedRaceSchema.safeParse(value);
-    return result.success ? result.data : initialRace();
+    return result.success ? result.data : legacyRaceFallback();
   }
-  catch { return initialRace(); }
+  catch { return legacyRaceFallback(); }
 }
 const persist = (key: string, value: unknown): void => { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* Storage may be unavailable or full. */ } };
-export const savePlan = (plan: ActivePlan): void => persist(planKey, plan);
-export const saveRace = (race: RaceState): void => persist(stateKey, race);
+export const savePlan = (plan: LegacyPlan): void => persist(planKey, plan);
+export const saveRace = (race: LegacyRace): void => persist(stateKey, race);
 export const loadViewMode = (): ViewMode => z.enum(['simple', 'full']).catch('simple').parse(localStorage.getItem(viewModeKey));
 export const saveViewMode = (viewMode: ViewMode): void => persist(viewModeKey, viewMode);
 export function loadMusicPositions(): Record<string, number> {
@@ -89,3 +91,6 @@ export function loadMusicPositions(): Record<string, number> {
   catch { return {}; }
 }
 export const saveMusicPositions = (positions: Record<string, number>): void => persist(musicPositionsKey, positions);
+
+const legacyFallback = (): LegacyPlan => { const configuration = configurationFromPreset(); return { ...configuration.plan, ...configuration.preferences }; };
+const legacyRaceFallback = (): LegacyRace => ({ phase: 0, anchor: Date.now(), pausedAt: null, pausedTotal: 0, gelAnchor: 0, gelFired: 0, begun: false });

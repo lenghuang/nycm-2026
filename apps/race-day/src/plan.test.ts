@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { cueJumpOffset, elapsed, intervalFor } from './plan';
-import type { Phase, RaceState } from './types';
+import { elapsed, intervalBoundaryDelta, intervalFor } from './plan';
+import type { Phase, RaceSession } from './types';
 
 const runFirstPhase: Phase = {
   name: 'Controlled',
@@ -16,14 +16,15 @@ const runFirstPhase: Phase = {
   musicTrackId: 'race-day',
 };
 
-const race = (overrides: Partial<RaceState> = {}): RaceState => ({
+const race = (overrides: Partial<RaceSession> = {}): RaceSession => ({
   phase: 0,
   anchor: 0,
   pausedAt: null,
   pausedTotal: 0,
-  gelAnchor: 0,
-  gelFired: 0,
+  gelScheduleAnchorElapsedMs: 0,
+  lastDeliveredGelNumber: 0,
   begun: true,
+  addedCyclesByPhase: {},
   ...overrides,
 });
 
@@ -35,7 +36,7 @@ describe('run/walk interval timing', () => {
 
   it('moves Next interval from RUN directly to WALK, not to the next run cycle', () => {
     const now = 15_000;
-    const offset = cueJumpOffset([runFirstPhase], race(), now, 1);
+    const offset = intervalBoundaryDelta([runFirstPhase], race(), now, 1);
     const advancedRace = race({ anchor: -offset });
 
     expect(offset).toBe(45_000);

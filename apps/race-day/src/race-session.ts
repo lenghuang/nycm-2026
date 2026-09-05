@@ -1,4 +1,4 @@
-import { cueJumpOffset, elapsed, intervalFor } from './plan';
+import { elapsed, intervalBoundaryDelta, intervalFor } from './plan';
 import type { Phase, RaceSession } from './types';
 
 export type RaceSessionAction =
@@ -31,7 +31,7 @@ export function raceSessionReducer(session: RaceSession, action: RaceSessionActi
     case 'RESUME': return session.pausedAt ? { ...session, pausedAt: null, pausedTotal: session.pausedTotal + action.now - session.pausedAt } : session;
     case 'CHANGE_PHASE': return action.phase === session.phase ? session : resetSession(session, clampPhase(action.phase, phases), action.now, session.begun, phases);
     case 'JUMP_INTERVAL': {
-      const offset = Math.max(-elapsed(session, action.now), cueJumpOffset(phases, session, action.now, action.direction));
+      const offset = Math.max(-elapsed(session, action.now), intervalBoundaryDelta(phases, session, action.now, action.direction));
       const next = { ...session, anchor: session.anchor - offset, lastInterval: undefined };
       return { ...next, lastInterval: intervalFor(phases, next, action.now).key };
     }
@@ -39,7 +39,7 @@ export function raceSessionReducer(session: RaceSession, action: RaceSessionActi
     case 'ADD_CYCLE': return { ...session, addedCyclesByPhase: { ...session.addedCyclesByPhase, [session.phase]: (session.addedCyclesByPhase[session.phase] ?? 0) + 1 } };
     case 'MARK_INTERVAL': return session.lastInterval === action.key ? session : { ...session, lastInterval: action.key };
     case 'MARK_GEL_DELIVERED': return action.number <= session.lastDeliveredGelNumber ? session : { ...session, lastDeliveredGelNumber: action.number };
-    case 'REPLACE_PLAN': return resetSession(session, clampPhase(0, { length: action.phaseCount } as Phase[]), action.now, action.begun ?? false, phases);
+    case 'REPLACE_PLAN': return resetSession(session, 0, action.now, action.begun ?? false, phases);
   }
 }
 

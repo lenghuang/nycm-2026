@@ -2,6 +2,7 @@ import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { futureCueEvents } from './race-projection';
 import { notificationSoundSource } from './audio-library';
+import { cueForPhase } from './phase-audio';
 import type { LocalNotificationSchema } from '@capacitor/local-notifications';
 import type { NotificationSoundSettings, NotificationSoundVolumes, RacePlan, RaceSession } from './types';
 
@@ -66,7 +67,7 @@ async function synchronizeNativeRaceNotificationsNow(
   if (notifications.length) await LocalNotifications.schedule({ notifications });
 }
 
-function futurePhaseNotifications(
+export function futurePhaseNotifications(
   plan: RacePlan,
   race: RaceSession,
   sounds: NotificationSoundSettings,
@@ -77,17 +78,25 @@ function futurePhaseNotifications(
   const phaseElapsed = Math.max(0, now - race.anchor - race.pausedTotal);
   const cues = futureCueEvents(plan, race, now)
     .slice(0, maximumRaceNotifications)
-    .map((event) => ({
-      type: event.type,
-      atPhaseElapsed: event.atPhaseElapsed,
-      title: event.type === 'gel' ? 'Gel time' : `${event.mode} now`,
-      body:
-        event.type === 'gel'
-          ? `${phase.name} · take your next gel when you can.`
-          : `${phase.name} · switch to ${event.mode?.toLowerCase()}.`,
-      soundId: event.type === 'gel' ? sounds.gel : event.mode === 'RUN' ? sounds.run : sounds.walk,
-      soundVolume: event.type === 'gel' ? volumes.gel : event.mode === 'RUN' ? volumes.run : volumes.walk,
-    }));
+    .map((event): ScheduledCue => {
+      const cue = cueForPhase(
+        phase,
+        event.type === 'gel' ? 'gel' : event.mode === 'RUN' ? 'run' : 'walk',
+        sounds,
+        volumes,
+      );
+      return {
+        type: event.type,
+        atPhaseElapsed: event.atPhaseElapsed,
+        title: event.type === 'gel' ? 'Gel time' : `${event.mode} now`,
+        body:
+          event.type === 'gel'
+            ? `${phase.name} · take your next gel when you can.`
+            : `${phase.name} · switch to ${event.mode?.toLowerCase()}.`,
+        soundId: cue.soundId,
+        soundVolume: cue.volume,
+      };
+    });
 
   const groupedCues = new Map<number, ScheduledCue[]>();
   for (const cue of cues) groupedCues.set(cue.atPhaseElapsed, [...(groupedCues.get(cue.atPhaseElapsed) ?? []), cue]);

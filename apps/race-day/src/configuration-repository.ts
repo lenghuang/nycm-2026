@@ -1,76 +1,200 @@
+import { z } from 'zod';
+import { defaultMusicTrackId, defaultNotificationSounds, defaultNotificationSoundVolumes } from './audio-library';
 import { configurationFromPreset, defaultRunnerPreferences } from './configs';
-import { loadPlan, loadRace, savePlan, saveRace } from './storage';
 import { initialRaceSession } from './race-session';
-import type { RaceConfiguration, RaceSession, RunnerPreferences } from './types';
+import type { RaceConfiguration, RaceSession } from './types';
 
-const preferencesKey = 'nyc-race-day-preferences-v1';
-const sessionKey = 'nyc-race-day-session-v1';
+const dataKey = 'nyc-race-day-data-v2';
+const legacyKeys = [
+  'nyc-race-day-plan-v5',
+  'nyc-race-day-state-v5',
+  'nyc-race-day-preferences-v1',
+  'nyc-race-day-session-v1',
+];
 
-export function loadRaceConfiguration(): RaceConfiguration {
-  const legacyPlan = loadPlan();
-  const fallback = configurationFromPreset(legacyPlan.presetId);
-  return {
-    plan: { presetId: legacyPlan.presetId, phases: legacyPlan.phases },
-    preferences: loadRunnerPreferences({ ...fallback.preferences, ...legacyPlan }),
-  };
+const phaseSchema = z.object({
+  name: z.string(),
+  miles: z.string(),
+  note: z.string(),
+  runDurationMs: z.number().finite().positive(),
+  walkDurationMs: z.number().finite().positive(),
+  gelIntervalMs: z.number().finite().positive(),
+  plannedCycles: z.number().finite().int().positive(),
+  startsWith: z.enum(['RUN', 'WALK']),
+  effort: z.enum(['RECOVERY', 'CONTROLLED', 'SURGE', 'FINISH', 'TEST']),
+  music: z.enum(['SILENT', 'START_TRACK', 'CONTINUE_TRACK', 'STOP_TRACK', 'NONE', 'START']),
+  musicTrackId: z.string().optional(),
+  cueOverrides: z
+    .partialRecord(
+      z.enum(['run', 'walk', 'gel']),
+      z.object({ soundId: z.string(), volume: z.enum(['quiet', 'normal', 'loud']) }),
+    )
+    .optional(),
+});
+const preferencesSchema = z.object({
+  notificationSounds: z.object({ run: z.string(), walk: z.string(), gel: z.string() }),
+  notificationSoundVolumes: z.object({
+    run: z.enum(['quiet', 'normal', 'loud']),
+    walk: z.enum(['quiet', 'normal', 'loud']),
+    gel: z.enum(['quiet', 'normal', 'loud']),
+  }),
+  musicVolume: z.number().finite(),
+  viewMode: z.enum(['simple', 'full']),
+});
+const sessionSchema = z.object({
+  phase: z.number().finite().int().nonnegative(),
+  anchor: z.number().finite(),
+  pausedAt: z.number().finite().nullable(),
+  pausedTotal: z.number().finite().nonnegative(),
+  gelScheduleAnchorElapsedMs: z.number().finite().nonnegative(),
+  lastDeliveredGelNumber: z.number().finite().int().nonnegative(),
+  begun: z.boolean(),
+  finishedAt: z.number().finite().nullable().optional(),
+  lastInterval: z.string().optional(),
+  addedCyclesByPhase: z.record(z.string(), z.number().finite().int().nonnegative()).optional(),
+});
+const recordSchema = z.object({
+  version: z.literal(2),
+  configuration: z.object({
+    plan: z.object({ presetId: z.string(), phases: z.array(phaseSchema).min(1) }),
+    preferences: preferencesSchema,
+  }),
+  session: sessionSchema,
+});
+type StoredRecord = { version: 2; configuration: RaceConfiguration; session: RaceSession };
+let cached: StoredRecord | null = null;
+
+/** Reads only v2 after a one-time import, then deletes all earlier shapes. */
+function loadRecord(): StoredRecord {
+  if (cached) return cached;
+  const current = parse(recordSchema as unknown as z.ZodType<StoredRecord>, localStorage.getItem(dataKey));
+  if (current) return (cached = normalize(current));
+  cached = migrateLegacy();
+  persist(cached);
+  removeLegacyKeys();
+  return cached;
 }
-
+export const loadRaceConfiguration = (): RaceConfiguration => loadRecord().configuration;
+export const loadRaceSession = (): RaceSession => loadRecord().session;
 export function saveRaceConfiguration(configuration: RaceConfiguration): void {
-  savePlan({ ...configuration.plan, ...configuration.preferences });
+  cached = { ...loadRecord(), configuration: normalizeConfiguration(configuration) };
+  persist(cached);
+}
+export function saveRaceSession(session: RaceSession): void {
+  cached = { ...loadRecord(), session: normalizeSession(session) };
+  persist(cached);
 }
 
-export function loadRunnerPreferences(fallback = defaultRunnerPreferences()): RunnerPreferences {
-  try {
-    const value = JSON.parse(localStorage.getItem(preferencesKey) ?? 'null') as Partial<RunnerPreferences> | null;
-    if (!value || typeof value !== 'object') return fallback;
-    return {
-      notificationSounds: { ...fallback.notificationSounds, ...value.notificationSounds },
-      notificationSoundVolumes: { ...fallback.notificationSoundVolumes, ...value.notificationSoundVolumes },
-      musicVolume:
-        typeof value.musicVolume === 'number' ? Math.max(0, Math.min(1, value.musicVolume)) : fallback.musicVolume,
-      viewMode: value.viewMode === 'full' ? 'full' : 'simple',
-    };
-  } catch {
-    return fallback;
-  }
+function migrateLegacy(): StoredRecord {
+  const fallback = configurationFromPreset();
+  const oldPlan = parse(
+    z.object({
+      presetId: z.string(),
+      phases: z.array(phaseSchema).min(1),
+      notificationSounds: z.any().optional(),
+      notificationSoundVolumes: z.any().optional(),
+      musicVolume: z.number().optional(),
+    }),
+    localStorage.getItem(legacyKeys[0]),
+  );
+  const oldPreferences = parse(z.record(z.string(), z.unknown()), localStorage.getItem(legacyKeys[2]));
+  const configuration = normalizeConfiguration({
+    plan: oldPlan
+      ? { presetId: oldPlan.presetId, phases: oldPlan.phases as RaceConfiguration['plan']['phases'] }
+      : fallback.plan,
+    preferences: { ...fallback.preferences, ...(oldPlan ?? {}), ...(oldPreferences ?? {}) },
+  });
+  const currentSession = parse(sessionSchema as unknown as z.ZodType<RaceSession>, localStorage.getItem(legacyKeys[3]));
+  const oldRace = parse(
+    z.object({
+      phase: z.number(),
+      anchor: z.number(),
+      pausedAt: z.number().nullable(),
+      pausedTotal: z.number(),
+      gelAnchor: z.number().default(0),
+      gelFired: z.number().default(0),
+      begun: z.boolean(),
+      lastInterval: z.string().optional(),
+    }),
+    localStorage.getItem(legacyKeys[1]),
+  );
+  const session = normalizeSession(
+    currentSession ??
+      (oldRace
+        ? {
+            ...initialRaceSession(oldRace.anchor),
+            ...oldRace,
+            gelScheduleAnchorElapsedMs: oldRace.gelAnchor,
+            lastDeliveredGelNumber: oldRace.gelFired,
+          }
+        : initialRaceSession()),
+  );
+  return { version: 2, configuration, session };
 }
-
-export function saveRunnerPreferences(preferences: RunnerPreferences): void {
-  try {
-    localStorage.setItem(preferencesKey, JSON.stringify(preferences));
-  } catch {
-    /* Storage may be unavailable or full. */
-  }
-}
-
-export function loadRaceSession(): RaceSession {
-  try {
-    const value = JSON.parse(localStorage.getItem(sessionKey) ?? 'null') as Partial<RaceSession> | null;
-    if (value && typeof value === 'object' && typeof value.gelScheduleAnchorElapsedMs === 'number')
-      return { ...initialRaceSession(), ...value, addedCyclesByPhase: value.addedCyclesByPhase ?? {} };
-  } catch {
-    /* Fall through to migration. */
-  }
-  const legacy = loadRace();
+function normalize(record: StoredRecord): StoredRecord {
   return {
-    ...initialRaceSession(legacy.anchor),
-    phase: legacy.phase,
-    anchor: legacy.anchor,
-    pausedAt: legacy.pausedAt,
-    pausedTotal: legacy.pausedTotal,
-    gelScheduleAnchorElapsedMs: legacy.gelAnchor,
-    lastDeliveredGelNumber: legacy.gelFired,
-    begun: legacy.begun,
-    lastInterval: legacy.lastInterval,
+    ...record,
+    configuration: normalizeConfiguration(record.configuration),
+    session: normalizeSession(record.session),
   };
 }
-
-export function saveRaceSession(session: RaceSession): void {
+function normalizeConfiguration(configuration: RaceConfiguration): RaceConfiguration {
+  const fallback = defaultRunnerPreferences();
+  return {
+    plan: {
+      ...configuration.plan,
+      phases: configuration.plan.phases.map((phase) => {
+        const legacyMusic = phase.music as string;
+        return {
+          ...phase,
+          music: legacyMusic === 'START' ? 'START_TRACK' : legacyMusic === 'NONE' ? 'CONTINUE_TRACK' : phase.music,
+          musicTrackId: phase.musicTrackId || defaultMusicTrackId,
+        };
+      }),
+    },
+    preferences: {
+      notificationSounds: {
+        ...defaultNotificationSounds,
+        ...fallback.notificationSounds,
+        ...configuration.preferences.notificationSounds,
+      },
+      notificationSoundVolumes: {
+        ...defaultNotificationSoundVolumes,
+        ...fallback.notificationSoundVolumes,
+        ...configuration.preferences.notificationSoundVolumes,
+      },
+      musicVolume: Math.max(0, Math.min(1, configuration.preferences.musicVolume)),
+      viewMode: configuration.preferences.viewMode === 'full' ? 'full' : 'simple',
+    },
+  };
+}
+function normalizeSession(session: RaceSession): RaceSession {
+  return {
+    ...initialRaceSession(session.anchor),
+    ...session,
+    finishedAt: session.finishedAt ?? null,
+    addedCyclesByPhase: session.addedCyclesByPhase ?? {},
+  };
+}
+function parse<T>(schema: z.ZodType<T>, raw: string | null): T | null {
   try {
-    localStorage.setItem(sessionKey, JSON.stringify(session));
+    const result = schema.safeParse(JSON.parse(raw ?? 'null'));
+    return result.success ? result.data : null;
   } catch {
-    /* Storage may be unavailable or full. */
+    return null;
   }
-  // Keep the last session readable by pre-refactor builds during development.
-  saveRace({ ...session, gelAnchor: session.gelScheduleAnchorElapsedMs, gelFired: session.lastDeliveredGelNumber });
+}
+function persist(value: StoredRecord): void {
+  try {
+    localStorage.setItem(dataKey, JSON.stringify(value));
+  } catch {
+    /* unavailable/full */
+  }
+}
+function removeLegacyKeys(): void {
+  try {
+    legacyKeys.forEach((key) => localStorage.removeItem(key));
+  } catch {
+    /* unavailable */
+  }
 }

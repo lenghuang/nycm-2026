@@ -11,6 +11,7 @@ export type RaceSessionAction =
   | { type: 'ADD_CYCLE' }
   | { type: 'MARK_INTERVAL'; key: string }
   | { type: 'MARK_GEL_DELIVERED'; number: number }
+  | { type: 'FINISH'; now: number }
   | { type: 'REPLACE_PLAN'; phaseCount: number; now: number; begun?: boolean };
 
 export const initialRaceSession = (now = Date.now()): RaceSession => ({
@@ -21,6 +22,7 @@ export const initialRaceSession = (now = Date.now()): RaceSession => ({
   gelScheduleAnchorElapsedMs: 0,
   lastDeliveredGelNumber: 0,
   begun: false,
+  finishedAt: null,
   addedCyclesByPhase: {},
 });
 
@@ -33,6 +35,10 @@ export function raceSessionReducer(session: RaceSession, action: RaceSessionActi
     case 'RESUME':
       return session.pausedAt
         ? { ...session, pausedAt: null, pausedTotal: session.pausedTotal + action.now - session.pausedAt }
+        : session;
+    case 'FINISH':
+      return session.begun && !session.finishedAt
+        ? { ...session, pausedAt: action.now, finishedAt: action.now }
         : session;
     case 'CHANGE_PHASE':
       return action.phase === session.phase
@@ -79,6 +85,7 @@ function resetSession(session: RaceSession, phase: number, now: number, begun: b
     gelScheduleAnchorElapsedMs: 0,
     lastDeliveredGelNumber: 0,
     begun,
+    finishedAt: null,
     lastInterval: undefined,
     addedCyclesByPhase: {},
   };

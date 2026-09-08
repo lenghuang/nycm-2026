@@ -18,7 +18,7 @@ export const intervalDemo: RacePlanPreset = {
       plannedCycles: 6,
       startsWith: 'RUN',
       effort: 'TEST',
-      music: 'NONE',
+      music: 'SILENT',
     },
   ],
 };

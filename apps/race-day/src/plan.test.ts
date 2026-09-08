@@ -12,7 +12,7 @@ const runFirstPhase: Phase = {
   plannedCycles: 10,
   startsWith: 'RUN',
   effort: 'CONTROLLED',
-  music: 'NONE',
+  music: 'SILENT',
   musicTrackId: 'race-day',
 };
 
@@ -24,6 +24,7 @@ const race = (overrides: Partial<RaceSession> = {}): RaceSession => ({
   gelScheduleAnchorElapsedMs: 0,
   lastDeliveredGelNumber: 0,
   begun: true,
+  finishedAt: null,
   addedCyclesByPhase: {},
   ...overrides,
 });

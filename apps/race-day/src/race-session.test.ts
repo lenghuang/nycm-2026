@@ -16,7 +16,7 @@ const plan: RacePlan = {
       plannedCycles: 2,
       startsWith: 'RUN',
       effort: 'TEST',
-      music: 'NONE',
+      music: 'SILENT',
       musicTrackId: 'race-day',
     },
   ],
@@ -35,9 +35,18 @@ describe('race session reducer', () => {
   it('resets the phase clock and gel schedule when changing phase', () => {
     const session = { ...initialRaceSession(0), begun: true, gelScheduleAnchorElapsedMs: 20_000 };
     const planWithSecondPhase = { ...plan, phases: [...plan.phases, { ...plan.phases[0], name: 'Second phase' }] };
-    const changed = raceSessionReducer(session, { type: 'CHANGE_PHASE', phase: 1, now: 40_000 }, planWithSecondPhase.phases);
+    const changed = raceSessionReducer(
+      session,
+      { type: 'CHANGE_PHASE', phase: 1, now: 40_000 },
+      planWithSecondPhase.phases,
+    );
 
-    expect(changed).toMatchObject({ phase: 1, anchor: 40_000, gelScheduleAnchorElapsedMs: 0, lastDeliveredGelNumber: 0 });
+    expect(changed).toMatchObject({
+      phase: 1,
+      anchor: 40_000,
+      gelScheduleAnchorElapsedMs: 0,
+      lastDeliveredGelNumber: 0,
+    });
   });
 
   it('keeps an added cycle in the session without mutating the plan', () => {
@@ -56,5 +65,22 @@ describe('race session reducer', () => {
       { type: 'interval', atPhaseElapsed: 90_000, mode: 'RUN' },
       { type: 'gel', atPhaseElapsed: 120_000 },
     ]);
+  });
+
+  it('finishes from the final phase and clears all live timing state when replacing a configuration', () => {
+    const finished = raceSessionReducer(
+      { ...initialRaceSession(0), begun: true, phase: 0 },
+      { type: 'FINISH', now: 42_000 },
+      plan.phases,
+    );
+    expect(finished).toMatchObject({ finishedAt: 42_000, pausedAt: 42_000 });
+    const replaced = raceSessionReducer(finished, { type: 'REPLACE_PLAN', phaseCount: 1, now: 50_000 }, plan.phases);
+    expect(replaced).toMatchObject({
+      phase: 0,
+      begun: false,
+      finishedAt: null,
+      pausedAt: null,
+      addedCyclesByPhase: {},
+    });
   });
 });

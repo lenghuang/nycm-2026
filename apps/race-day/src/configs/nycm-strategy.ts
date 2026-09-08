@@ -18,7 +18,7 @@ export const nycmStrategy: RacePlanPreset = {
       plannedCycles: 1,
       startsWith: 'WALK',
       effort: 'RECOVERY',
-      music: 'NONE',
+      music: 'SILENT',
     },
     {
       name: '🙇 4th Ave Brooklyn',
@@ -30,7 +30,7 @@ export const nycmStrategy: RacePlanPreset = {
       plannedCycles: 12,
       startsWith: 'RUN',
       effort: 'CONTROLLED',
-      music: 'NONE',
+      music: 'CONTINUE_TRACK',
     },
     {
       name: '😈 Bedford',
@@ -42,7 +42,7 @@ export const nycmStrategy: RacePlanPreset = {
       plannedCycles: 1,
       startsWith: 'RUN',
       effort: 'SURGE',
-      music: 'NONE',
+      music: 'CONTINUE_TRACK',
     },
     {
       name: '🐢 Pulaski Bridge',
@@ -54,7 +54,7 @@ export const nycmStrategy: RacePlanPreset = {
       plannedCycles: 1,
       startsWith: 'WALK',
       effort: 'RECOVERY',
-      music: 'NONE',
+      music: 'CONTINUE_TRACK',
     },
     {
       name: '🙇 LIC',
@@ -66,7 +66,7 @@ export const nycmStrategy: RacePlanPreset = {
       plannedCycles: 2,
       startsWith: 'RUN',
       effort: 'CONTROLLED',
-      music: 'NONE',
+      music: 'CONTINUE_TRACK',
     },
     {
       name: '🐢 Queensboro Bridge',
@@ -78,7 +78,7 @@ export const nycmStrategy: RacePlanPreset = {
       plannedCycles: 1,
       startsWith: 'WALK',
       effort: 'RECOVERY',
-      music: 'START',
+      music: 'START_TRACK',
     },
     {
       name: '🙇 1st Ave Manhattan',
@@ -90,7 +90,7 @@ export const nycmStrategy: RacePlanPreset = {
       plannedCycles: 7,
       startsWith: 'RUN',
       effort: 'SURGE',
-      music: 'NONE',
+      music: 'CONTINUE_TRACK',
     },
     {
       name: '🐢 Bronx Bridges',
@@ -102,7 +102,7 @@ export const nycmStrategy: RacePlanPreset = {
       plannedCycles: 1,
       startsWith: 'WALK',
       effort: 'RECOVERY',
-      music: 'NONE',
+      music: 'CONTINUE_TRACK',
     },
     {
       name: '🙇 Harlem',
@@ -114,7 +114,7 @@ export const nycmStrategy: RacePlanPreset = {
       plannedCycles: 3,
       startsWith: 'RUN',
       effort: 'CONTROLLED',
-      music: 'NONE',
+      music: 'CONTINUE_TRACK',
     },
     {
       name: '🐢 5th Ave Manhattan',
@@ -126,7 +126,7 @@ export const nycmStrategy: RacePlanPreset = {
       plannedCycles: 3,
       startsWith: 'WALK',
       effort: 'RECOVERY',
-      music: 'NONE',
+      music: 'CONTINUE_TRACK',
     },
     {
       name: '😈 Central Park',
@@ -138,7 +138,7 @@ export const nycmStrategy: RacePlanPreset = {
       plannedCycles: 2,
       startsWith: 'RUN',
       effort: 'FINISH',
-      music: 'NONE',
+      music: 'CONTINUE_TRACK',
     },
   ],
 };

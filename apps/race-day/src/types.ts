@@ -1,6 +1,7 @@
 export type IntervalMode = 'RUN' | 'WALK';
 export type EffortLevel = 'RECOVERY' | 'CONTROLLED' | 'SURGE' | 'FINISH' | 'TEST';
-export type MusicCue = 'NONE' | 'START';
+export type MusicPolicy = 'SILENT' | 'START_TRACK' | 'CONTINUE_TRACK' | 'STOP_TRACK';
+export type NotificationCue = 'run' | 'walk' | 'gel';
 export type NotificationSoundSettings = { run: string; walk: string; gel: string };
 export type NotificationSoundVolume = 'quiet' | 'normal' | 'loud';
 export type NotificationSoundVolumes = {
@@ -8,6 +9,7 @@ export type NotificationSoundVolumes = {
   walk: NotificationSoundVolume;
   gel: NotificationSoundVolume;
 };
+export type PhaseCueOverrides = Partial<Record<NotificationCue, { soundId: string; volume: NotificationSoundVolume }>>;
 export type ViewMode = 'simple' | 'full';
 
 export type Phase = {
@@ -20,8 +22,11 @@ export type Phase = {
   plannedCycles: number;
   startsWith: IntervalMode;
   effort: EffortLevel;
-  music: MusicCue;
+  /** How entering this phase affects music playback. */
+  music: MusicPolicy;
   musicTrackId: string;
+  /** Optional per-phase replacement for the runner's normal cue sound and volume. */
+  cueOverrides?: PhaseCueOverrides;
 };
 
 export type RacePlanPreset = {
@@ -58,6 +63,7 @@ export type RaceSession = {
   gelScheduleAnchorElapsedMs: number;
   lastDeliveredGelNumber: number;
   begun: boolean;
+  finishedAt: number | null;
   lastInterval?: string;
   addedCyclesByPhase: Record<number, number>;
 };
